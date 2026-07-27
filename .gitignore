@@ -1,0 +1,10 @@
+node_modules
+out
+dist
+release
+*.local
+.DS_Store
+.eslintcache
+*.log
+data/*.db
+.claude

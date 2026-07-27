@@ -1,0 +1,56 @@
+appId: vn.center.quanlytrungtam
+productName: Quản Lý Trung Tâm
+copyright: Copyright © 2026
+
+directories:
+  buildResources: build
+  output: release/${version}
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!drizzle.config.ts'
+  - '!{.eslintrc.cjs,.prettierrc,.prettierignore,.editorconfig}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!release/*'
+
+# better-sqlite3 là native module: bắt buộc để nguyên (không nén vào asar)
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+  - resources/**
+
+# Chèn file migration SQL vào app để chạy lần đầu trên máy người dùng
+extraResources:
+  - from: drizzle
+    to: drizzle
+    filter: ['**/*']
+
+win:
+  executableName: QuanLyTrungTam
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Quản Lý Trung Tâm
+
+mac:
+  target: [dmg]
+  category: public.app-category.education
+  entitlementsInherit: build/entitlements.mac.plist
+
+linux:
+  target: [AppImage, deb]
+  category: Education
+  maintainer: center.vn
+
+npmRebuild: false

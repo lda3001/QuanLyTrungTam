@@ -1,0 +1,101 @@
+import { classRepository } from '../repositories/class.repository'
+import { courseRepository } from '../repositories/course.repository'
+import { audit } from './audit'
+import { AppError } from '../utils/errors'
+import type { PageResult, SelectOption } from '@shared/types/common'
+import type { ClassRoomDetail, EnrollmentDetail, Student } from '@shared/types/entities'
+import type { ClassInput, ClassQuery, EnrollImportInput, EnrollInput, ImportResult } from '@shared/types/dto'
+
+export class ClassService {
+  list(query: ClassQuery): PageResult<ClassRoomDetail> {
+    return classRepository.list(query ?? {})
+  }
+
+  get(id: number): ClassRoomDetail {
+    return classRepository.detail(id)
+  }
+
+  create(input: ClassInput): ClassRoomDetail {
+    this.validate(input)
+    const cls = classRepository.create(input)
+    audit('create', 'classes', cls.id, `Thêm lớp ${cls.code} — ${cls.name}`)
+    return cls
+  }
+
+  update(id: number, input: ClassInput): ClassRoomDetail {
+    this.validate(input)
+    const cls = classRepository.update(id, input)
+    audit('update', 'classes', cls.id, `Cập nhật lớp ${cls.code} — ${cls.name}`)
+    return cls
+  }
+
+  remove(id: number): boolean {
+    const cls = classRepository.findByIdOrFail(id, 'Lớp học')
+    classRepository.assertDeletable(id)
+    const done = classRepository.softDelete(id)
+    if (done) audit('delete', 'classes', id, `Xoá lớp ${cls.code} — ${cls.name}`)
+    return done
+  }
+
+  options(): SelectOption[] {
+    return classRepository.options()
+  }
+
+  students(classId: number): EnrollmentDetail[] {
+    return classRepository.studentsOfClass(classId)
+  }
+
+  availableStudents(classId: number, keyword?: string): Student[] {
+    return classRepository.availableStudents(classId, keyword)
+  }
+
+  enroll(input: EnrollInput): number {
+    if (!input.studentIds?.length) throw AppError.validation('Chưa chọn học viên nào.')
+    const count = classRepository.enroll(input)
+    audit('enroll', 'enrollments', input.classId, `Xếp ${count} học viên vào lớp #${input.classId}`, {
+      studentIds: input.studentIds
+    })
+    return count
+  }
+
+  unenroll(enrollmentId: number): boolean {
+    const done = classRepository.unenroll(enrollmentId)
+    if (done) audit('unenroll', 'enrollments', enrollmentId, `Gỡ học viên khỏi lớp (ghi danh #${enrollmentId})`)
+    return done
+  }
+
+  /** Xếp học viên vào lớp hàng loạt từ file Excel (chỉ khớp học viên đã có) */
+  enrollImport(input: EnrollImportInput): ImportResult {
+    if (!input?.rows?.length) throw AppError.validation('Không có dòng nào để nhập.')
+    const result = classRepository.enrollImport(input)
+    audit(
+      'enroll',
+      'enrollments',
+      input.classId,
+      `Nhập Excel xếp lớp: ${result.inserted}/${result.total} học viên vào lớp #${input.classId}`,
+      { failed: result.failed }
+    )
+    return result
+  }
+
+  private validate(input: ClassInput): void {
+    if (!input.name?.trim()) throw AppError.validation('Tên lớp không được để trống.')
+    if (!courseRepository.exists(input.courseId)) throw AppError.validation('Khoá học không tồn tại.')
+    if (input.maxStudents < 1) throw AppError.validation('Sĩ số tối đa phải lớn hơn 0.')
+
+    if (input.startDate && input.endDate && input.startDate > input.endDate) {
+      throw AppError.validation('Ngày kết thúc phải sau ngày bắt đầu.')
+    }
+
+    // Chặn hai khung giờ trùng nhau trong cùng một lớp
+    const seen = new Set<string>()
+    for (const s of input.schedules ?? []) {
+      if (s.weekday < 0 || s.weekday > 6) throw AppError.validation('Thứ trong tuần không hợp lệ.')
+      const key = `${s.weekday}|${s.startTime}`
+      if (seen.has(key)) throw AppError.validation('Có hai khung giờ trùng nhau trong cùng một ngày.')
+      seen.add(key)
+    }
+  }
+}
+
+export const classService = new ClassService()

@@ -1,0 +1,69 @@
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { timestamps } from './base'
+import { students } from './people'
+import { classes, classSessions } from './academic'
+import { users } from './auth'
+
+/** Ghi danh: học viên ↔ lớp học (bảng nối, kèm dữ liệu học phí đã chốt) */
+export const enrollments = sqliteTable(
+  'enrollments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => students.id),
+    classId: integer('class_id')
+      .notNull()
+      .references(() => classes.id),
+    enrollDate: text('enroll_date').notNull(),
+    status: text('status').notNull().default('studying'),
+    /**
+     * Học phí chốt riêng cho học viên này. Sao chép từ course.tuitionFee lúc
+     * ghi danh — nếu sau này trung tâm tăng giá khoá học, công nợ cũ không đổi.
+     */
+    agreedFee: integer('agreed_fee').notNull().default(0),
+    /** Số tiền giảm (VND), không phải phần trăm */
+    discount: integer('discount').notNull().default(0),
+    note: text('note'),
+    ...timestamps
+  },
+  (t) => ({
+    studentIdx: index('enrollments_student_idx').on(t.studentId),
+    classIdx: index('enrollments_class_idx').on(t.classId),
+    // Một học viên chỉ ghi danh một lần vào cùng một lớp
+    uniqIdx: uniqueIndex('enrollments_student_class_unique').on(t.studentId, t.classId),
+    deletedIdx: index('enrollments_deleted_idx').on(t.deletedAt)
+  })
+)
+
+/** Điểm danh: một dòng = một học viên trong một buổi học */
+export const attendance = sqliteTable(
+  'attendance',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    sessionId: integer('session_id')
+      .notNull()
+      .references(() => classSessions.id, { onDelete: 'cascade' }),
+    studentId: integer('student_id')
+      .notNull()
+      .references(() => students.id),
+    /** present | excused | absent | late */
+    status: text('status').notNull().default('present'),
+    note: text('note'),
+    markedBy: integer('marked_by').references(() => users.id),
+    markedAt: integer('marked_at')
+      .notNull()
+      .$defaultFn(() => Date.now()),
+    ...timestamps
+  },
+  (t) => ({
+    sessionIdx: index('attendance_session_idx').on(t.sessionId),
+    studentIdx: index('attendance_student_idx').on(t.studentId),
+    // Chống ghi trùng khi điểm danh lại: upsert theo cặp (buổi, học viên)
+    uniqIdx: uniqueIndex('attendance_session_student_unique').on(t.sessionId, t.studentId),
+    deletedIdx: index('attendance_deleted_idx').on(t.deletedAt)
+  })
+)
+
+export type EnrollmentRow = typeof enrollments.$inferSelect
+export type AttendanceRow = typeof attendance.$inferSelect

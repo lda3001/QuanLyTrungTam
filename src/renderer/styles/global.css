@@ -1,0 +1,269 @@
+/* ------------------------------------------------------------------
+   Kiểu nền tảng dùng chung.
+   Màu sắc lấy từ CSS variable do Ant Design sinh ra (--ant-color-*), nhờ vậy
+   giao diện tự đổi theo Light/Dark mà không cần khai báo hai bảng màu.
+   ------------------------------------------------------------------ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden; /* cuộn do vùng content tự quản lý */
+}
+
+/* Không cho kéo–thả file lạ vào cửa sổ (bảo mật + tránh điều hướng ngoài ý muốn) */
+body {
+  -webkit-user-drag: none;
+}
+
+/* ---------------- Thanh cuộn mảnh, hợp với giao diện hiện đại ---------------- */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ant-color-fill-secondary, rgba(0, 0, 0, 0.15));
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ant-color-fill, rgba(0, 0, 0, 0.25));
+}
+
+/* ---------------- Hiệu ứng chuyển động ---------------- */
+
+@keyframes app-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Mỗi lần đổi route, nội dung trượt lên nhẹ — chuyển màn hình đỡ giật */
+.page-enter {
+  animation: app-fade-in-up 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.fade-in {
+  animation: app-fade-in 0.35s ease;
+}
+
+/* Tôn trọng cài đặt "giảm chuyển động" của hệ điều hành */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .fade-in {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------- Bố cục khung ứng dụng ---------------- */
+
+.app-layout {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-sider {
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  box-shadow: 1px 0 0 var(--ant-color-split, rgba(0, 0, 0, 0.06));
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 20px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.app-logo-mark {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1677ff, #52a9ff);
+  color: #fff;
+  font-size: 18px;
+  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.35);
+}
+
+.app-logo-text {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.2;
+  transition:
+    opacity 0.2s ease,
+    width 0.2s ease;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--ant-color-split, rgba(0, 0, 0, 0.06));
+}
+
+.app-content {
+  height: calc(100vh - 64px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px 32px;
+}
+
+/* ---------------- Thẻ số liệu trên Dashboard ---------------- */
+
+.stat-card {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  font-size: 22px;
+}
+
+/* Dải màu mờ ở góc phải, tạo chiều sâu cho thẻ */
+.stat-card::after {
+  content: '';
+  position: absolute;
+  right: -30px;
+  top: -30px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  opacity: 0.08;
+  background: currentColor;
+  pointer-events: none;
+}
+
+/* ---------------- Bảng ---------------- */
+
+.app-table .ant-table-thead > tr > th {
+  font-weight: 600;
+}
+
+/* Hàng chẵn nền nhạt: mắt dễ dò ngang trên bảng nhiều cột */
+.app-table .ant-table-tbody > tr:nth-child(even) > td {
+  background: var(--ant-color-fill-quaternary, rgba(0, 0, 0, 0.02));
+}
+
+.app-table .ant-table-tbody > tr:hover > td {
+  background: var(--ant-color-primary-bg, rgba(22, 119, 255, 0.06)) !important;
+}
+
+/* ---------------- Lịch học ---------------- */
+
+.schedule-event {
+  border-radius: 6px;
+  padding: 3px 6px;
+  margin-bottom: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: grab;
+  border-left: 3px solid;
+  transition: transform 0.15s ease;
+}
+
+.schedule-event:active {
+  cursor: grabbing;
+}
+
+.schedule-event:hover {
+  transform: translateX(2px);
+}
+
+.schedule-cell-droppable {
+  min-height: 72px;
+  transition: background 0.15s ease;
+}
+
+.schedule-cell-over {
+  background: var(--ant-color-primary-bg, rgba(22, 119, 255, 0.12));
+  outline: 2px dashed var(--ant-color-primary, #1677ff);
+  outline-offset: -2px;
+}
+
+/* ---------------- Màn hình đăng nhập ---------------- */
+
+.login-page {
+  display: grid;
+  place-items: center;
+  height: 100vh;
+  background:
+    radial-gradient(1000px 500px at 10% 0%, rgba(22, 119, 255, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, rgba(114, 46, 209, 0.16), transparent 55%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  animation: app-fade-in-up 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------------- In phiếu thu ---------------- */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
