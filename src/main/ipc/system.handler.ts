@@ -92,6 +92,7 @@ export function registerSystemHandlers(): void {
   registerHandler(IPC.FILE_EXPORT_EXCEL, {}, (req: ExportRequest) => fileService.exportExcel(req))
   registerHandler(IPC.FILE_EXPORT_PDF, {}, (req: ExportPdfRequest) => fileService.exportPdf(req))
   registerHandler(IPC.FILE_IMPORT_EXCEL, {}, () => fileService.importExcel())
+  registerHandler(IPC.FILE_IMPORT_EXCEL_RAW, {}, () => fileService.importExcelRaw())
   registerHandler(IPC.FILE_PRINT_HTML, {}, (html: string) => fileService.printHtml(html))
 
   registerHandler(IPC.APP_INFO, { public: true }, () => ({

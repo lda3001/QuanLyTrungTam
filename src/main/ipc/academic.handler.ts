@@ -10,6 +10,8 @@ import { attendanceService } from '../services/attendance.service'
 import { fileService } from '../services/file.service'
 import type {
   AttendanceHistoryQuery,
+  AttendanceGridQuery,
+  MarkMultiAttendanceInput,
   ClassInput,
   ClassQuery,
   CourseInput,
@@ -135,8 +137,14 @@ export function registerAttendanceHandlers(): void {
   registerHandler(IPC.ATTENDANCE_MARK, { permission: P.ATTENDANCE_MARK }, (i: MarkAttendanceInput) =>
     attendanceService.mark(i)
   )
+  registerHandler(IPC.ATTENDANCE_MARK_MULTI, { permission: P.ATTENDANCE_MARK }, (i: MarkMultiAttendanceInput) =>
+    attendanceService.markMulti(i)
+  )
   registerHandler(IPC.ATTENDANCE_HISTORY, { permission: P.ATTENDANCE_VIEW }, (q: AttendanceHistoryQuery) =>
     attendanceService.history(q)
+  )
+  registerHandler(IPC.ATTENDANCE_GRID, { permission: P.ATTENDANCE_VIEW }, (q: AttendanceGridQuery) =>
+    attendanceService.grid(q)
   )
   registerHandler(IPC.ATTENDANCE_STUDENT_SUMMARY, { permission: P.ATTENDANCE_VIEW }, (id: number) =>
     attendanceService.studentSummary(id)

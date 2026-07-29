@@ -242,6 +242,11 @@ export interface MarkAttendanceInput {
   items: AttendanceMarkItem[]
 }
 
+export interface MarkMultiAttendanceInput {
+  /** Mỗi phần tử là điểm danh cho một buổi */
+  sessions: MarkAttendanceInput[]
+}
+
 export interface AttendanceHistoryQuery extends PageQuery {
   studentId?: number
   classId?: number
@@ -265,6 +270,40 @@ export interface AttendanceHistoryRow {
   note: string | null
   markedByName: string | null
   markedAt: number
+}
+
+export interface AttendanceGridQuery {
+  classId: number
+  from?: string
+  to?: string
+}
+
+export interface AttendanceGridSession {
+  id: number
+  sessionDate: string
+  startTime: string
+  endTime: string
+}
+
+export interface AttendanceGridStudent {
+  studentId: number
+  studentCode: string
+  studentName: string
+  schoolClass: string | null
+  guardianPhone: string | null
+}
+
+/**
+ * Dữ liệu bảng điểm danh nhiều buổi (dạng lưới): mỗi buổi là một cột, mỗi học
+ * viên là một hàng. `marks[studentId][sessionId]` là trạng thái đã chấm — thiếu
+ * khoá nghĩa là buổi đó chưa điểm danh cho học viên này.
+ */
+export interface AttendanceGridResult {
+  className: string
+  courseName: string
+  sessions: AttendanceGridSession[]
+  students: AttendanceGridStudent[]
+  marks: Record<number, Record<number, AttendanceStatus>>
 }
 
 /* ============================ PAYMENT ============================ */

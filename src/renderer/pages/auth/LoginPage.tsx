@@ -90,7 +90,7 @@ export default function LoginPage() {
                     {...field}
                     size="large"
                     prefix={<UserOutlined style={{ opacity: 0.45 }} />}
-                    placeholder="admin"
+                    placeholder="Vui lòng nhập tên đăng nhập"
                     autoFocus
                     autoComplete="username"
                   />
@@ -148,16 +148,24 @@ export default function LoginPage() {
 
           <Divider plain style={{ margin: '20px 0 12px' }}>
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              Tài khoản khởi tạo
+              Phần mềm được viết bởi <a href="https://zalo.me/ducanhdev" target="_blank" rel="noopener noreferrer">
+                DucAnhDev
+              </a>
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              <br />
+             
+                 © 2026 DucAnhDev. All rights reserved
+              
             </Typography.Text>
           </Divider>
 
-          <Typography.Paragraph type="secondary" style={{ textAlign: 'center', fontSize: 12, margin: 0 }}>
+          {/* <Typography.Paragraph type="secondary" style={{ textAlign: 'center', fontSize: 12, margin: 0 }}>
             <Typography.Text code>admin</Typography.Text> /{' '}
             <Typography.Text code>admin123</Typography.Text>
             <br />
             Hãy đổi mật khẩu ngay sau lần đăng nhập đầu tiên.
-          </Typography.Paragraph>
+          </Typography.Paragraph> */}
         </Card>
       </div>
     </div>

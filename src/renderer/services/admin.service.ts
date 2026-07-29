@@ -86,6 +86,8 @@ export const fileService = {
   exportPdf: (req: ExportPdfRequest): Promise<string | null> => call(api().files.exportPdf(req)),
   importExcel: (): Promise<{ fileName: string; rows: Record<string, unknown>[] } | null> =>
     call(api().files.importExcel()),
+  importExcelRaw: (): Promise<{ fileName: string; matrix: unknown[][] } | null> =>
+    call(api().files.importExcelRaw()),
   printHtml: (html: string): Promise<boolean> => call(api().files.printHtml(html))
 }
 

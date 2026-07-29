@@ -12,8 +12,11 @@ import type {
   Teacher
 } from '@shared/types/entities'
 import type {
+  AttendanceGridQuery,
+  AttendanceGridResult,
   AttendanceHistoryQuery,
   AttendanceHistoryRow,
+  MarkMultiAttendanceInput,
   ClassInput,
   ClassQuery,
   CourseInput,
@@ -95,8 +98,10 @@ export const scheduleService = {
 export const attendanceService = {
   bySession: (id: number): Promise<AttendanceDetail[]> => call(api().attendance.bySession(id)),
   mark: (i: MarkAttendanceInput): Promise<number> => call(api().attendance.mark(i)),
+  markMulti: (i: MarkMultiAttendanceInput): Promise<number> => call(api().attendance.markMulti(i)),
   history: (q: AttendanceHistoryQuery): Promise<PageResult<AttendanceHistoryRow>> =>
     call(api().attendance.history(q)),
+  grid: (q: AttendanceGridQuery): Promise<AttendanceGridResult> => call(api().attendance.grid(q)),
   studentSummary: (
     id: number
   ): Promise<{ present: number; excused: number; absent: number; late: number; total: number }> =>

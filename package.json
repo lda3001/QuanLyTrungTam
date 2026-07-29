@@ -11,7 +11,7 @@
       "icon": "build/icon.icns"
     },
     "win": {
-      "icon": "build/icon.ico"
+      "icon": "build/iconreal.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -33,7 +33,7 @@
     "lint": "eslint . --ext .ts,.tsx --cache",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "db:generate": "drizzle-kit generate",
-    "build:win": "npm run build && electron-builder --win --icon=build/icon.ico",
+    "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
     "build:unpack": "npm run build && electron-builder --dir"
@@ -61,7 +61,7 @@
     "axios": "^1.7.9",
     "dayjs": "^1.11.13",
     "drizzle-kit": "^0.31.10",
-    "electron": "~42.7.1",
+    "electron": "^35.7.5",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",
     "eslint": "^8.57.1",

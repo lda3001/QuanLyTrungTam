@@ -130,6 +130,36 @@ export class FileService {
     }
   }
 
+  /**
+   * Đọc file Excel người dùng chọn, trả về ma trận thô (mảng mảng) — không
+   * dùng hàng đầu làm tiêu đề. Dùng cho file có cấu trúc đặc biệt như bảng
+   * điểm danh nhiều buổi (tiêu đề ở hàng 1, header ở hàng 3).
+   */
+  async importExcelRaw(): Promise<{ fileName: string; matrix: unknown[][] } | null> {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Chọn tệp Excel',
+      properties: ['openFile'],
+      filters: [{ name: 'Excel', extensions: ['xlsx', 'xls'] }]
+    })
+    if (canceled || filePaths.length === 0) return null
+
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.readFile(filePaths[0])
+    const sheet = workbook.worksheets[0]
+    if (!sheet) throw AppError.validation('Tệp Excel không có sheet nào.')
+
+    const matrix: unknown[][] = []
+    sheet.eachRow((row) => {
+      const cells: unknown[] = []
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cells.push(normalizeCell(cell.value))
+      })
+      matrix.push(cells)
+    })
+
+    return { fileName: filePaths[0], matrix }
+  }
+
   /** Đọc file Excel người dùng chọn, trả về mảng object theo tiêu đề cột */
   async importExcel(): Promise<{ fileName: string; rows: Record<string, unknown>[] } | null> {
     const { canceled, filePaths } = await dialog.showOpenDialog({

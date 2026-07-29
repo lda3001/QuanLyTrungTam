@@ -20,13 +20,14 @@ import {
   Typography
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { CheckSquareOutlined, SaveOutlined } from '@ant-design/icons'
+import { CheckSquareOutlined, DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/common/PageHeader'
 import { DataTable } from '@/components/common/DataTable'
 import { Can, PersonCell, SearchInput } from '@/components/common'
 import { useTableQuery } from '@/hooks/useTableQuery'
 import { useNotify } from '@/hooks/useNotify'
+import { useExport } from '@/hooks/useExport'
 import { attendanceService, classService, scheduleService } from '@/services/academic.service'
 import { dayjs, DATE_FORMAT, formatDate, ISO_DATE } from '@/utils/format'
 import {
@@ -37,6 +38,9 @@ import {
 import { PERMISSIONS } from '@shared/constants/permissions'
 import type { AttendanceDetail } from '@shared/types/entities'
 import type { AttendanceHistoryRow } from '@shared/types/dto'
+import { AttendanceImportModal } from './AttendanceImportModal'
+import { AttendanceMultiExportModal } from './AttendanceMultiExportModal'
+import { AttendanceMultiImportModal } from './AttendanceMultiImportModal'
 
 /** Reference cố định cho danh sách rỗng — xem giải thích tại chỗ sử dụng */
 const EMPTY_ROWS: AttendanceDetail[] = []
@@ -53,12 +57,16 @@ const EMPTY_ROWS: AttendanceDetail[] = []
 export default function AttendancePage() {
   const notify = useNotify()
   const queryClient = useQueryClient()
+  const { exportExcel, exporting } = useExport()
 
   const [classId, setClassId] = useState<number | undefined>()
   const [sessionId, setSessionId] = useState<number | undefined>()
   const [marks, setMarks] = useState<Record<number, AttendanceStatus>>({})
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [dirty, setDirty] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [multiExportOpen, setMultiExportOpen] = useState(false)
+  const [multiImportOpen, setMultiImportOpen] = useState(false)
 
   const { data: classOptions = [] } = useQuery({
     queryKey: ['class-options'],
@@ -130,6 +138,33 @@ export default function AttendancePage() {
     setDirty(true)
   }
 
+  const selectedSession = sessions.find((s) => s.id === sessionId)
+
+  /**
+   * Xuất bảng điểm danh của buổi hiện tại. File này cũng dùng làm MẪU để nhập
+   * lại: giữ nguyên cột Mã HV / Họ và tên, người dùng chỉ sửa cột Trạng thái.
+   */
+  const handleExportSession = (): void => {
+    if (!selectedSession) return
+    void exportExcel({
+      fileName: `Diem-danh-${selectedSession.className}-${selectedSession.sessionDate}`,
+      sheetName: 'Điểm danh',
+      title: `ĐIỂM DANH — ${selectedSession.className} (${formatDate(selectedSession.sessionDate)})`,
+      columns: [
+        { key: 'code', title: 'Mã học viên', width: 16 },
+        { key: 'name', title: 'Họ và tên', width: 28 },
+        { key: 'status', title: 'Trạng thái', width: 18 },
+        { key: 'note', title: 'Ghi chú', width: 32 }
+      ],
+      rows: rows.map((r) => ({
+        code: r.studentCode,
+        name: r.studentName,
+        status: AttendanceStatusLabel[marks[r.studentId] ?? AttendanceStatus.PRESENT],
+        note: notes[r.studentId] ?? ''
+      }))
+    })
+  }
+
   const summary = useMemo(() => {
     const acc = { present: 0, late: 0, excused: 0, absent: 0 }
     for (const r of rows) {
@@ -138,8 +173,6 @@ export default function AttendancePage() {
     }
     return acc
   }, [rows, marks])
-
-  const selectedSession = sessions.find((s) => s.id === sessionId)
 
   const columns: ColumnsType<AttendanceDetail> = [
     {
@@ -191,6 +224,28 @@ export default function AttendancePage() {
         subtitle="Chấm chuyên cần theo từng buổi học"
         breadcrumbs={[{ title: 'Vận hành' }, { title: 'Điểm danh' }]}
         icon={<CheckSquareOutlined style={{ fontSize: 26, color: '#52c41a' }} />}
+        extra={
+          <>
+            <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
+              <Button
+                icon={<UploadOutlined />}
+                disabled={!classId}
+                onClick={() => setMultiImportOpen(true)}
+              >
+                Nhập nhiều buổi
+              </Button>
+            </Can>
+            <Can permission={PERMISSIONS.ATTENDANCE_VIEW}>
+              <Button
+                icon={<DownloadOutlined />}
+                disabled={!classId}
+                onClick={() => setMultiExportOpen(true)}
+              >
+                Xuất nhiều buổi
+              </Button>
+            </Can>
+          </>
+        }
       />
 
       <Tabs
@@ -327,21 +382,44 @@ export default function AttendancePage() {
                           : 'Danh sách điểm danh'
                       }
                       extra={
-                        <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
-                          <Space>
-                            <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                              Chấm nhanh:
-                            </Typography.Text>
-                            <Segmented
+                        <Space wrap>
+                          <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
+                            <Space>
+                              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                                Chấm nhanh:
+                              </Typography.Text>
+                              <Segmented
+                                size="small"
+                                options={[
+                                  { label: 'Tất cả có mặt', value: AttendanceStatus.PRESENT },
+                                  { label: 'Tất cả vắng', value: AttendanceStatus.ABSENT }
+                                ]}
+                                onChange={(v) => setAll(v as AttendanceStatus)}
+                              />
+                            </Space>
+                          </Can>
+                          <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
+                            <Button
                               size="small"
-                              options={[
-                                { label: 'Tất cả có mặt', value: AttendanceStatus.PRESENT },
-                                { label: 'Tất cả vắng', value: AttendanceStatus.ABSENT }
-                              ]}
-                              onChange={(v) => setAll(v as AttendanceStatus)}
-                            />
-                          </Space>
-                        </Can>
+                              icon={<UploadOutlined />}
+                              onClick={() => setImportOpen(true)}
+                              disabled={rows.length === 0}
+                            >
+                              Nhập Excel
+                            </Button>
+                          </Can>
+                          <Can permission={PERMISSIONS.ATTENDANCE_VIEW}>
+                            <Button
+                              size="small"
+                              icon={<DownloadOutlined />}
+                              loading={exporting}
+                              onClick={handleExportSession}
+                              disabled={rows.length === 0}
+                            >
+                              Xuất Excel
+                            </Button>
+                          </Can>
+                        </Space>
                       }
                       styles={{ body: { padding: 0 } }}
                     >
@@ -370,6 +448,38 @@ export default function AttendancePage() {
           }
         ]}
       />
+
+      {sessionId && selectedSession && (
+        <AttendanceImportModal
+          open={importOpen}
+          sessionId={sessionId}
+          sessionLabel={`${selectedSession.className} — ${formatDate(selectedSession.sessionDate)}`}
+          enrolledStudents={rows.map((r) => ({
+            studentId: r.studentId,
+            studentName: r.studentName,
+            studentCode: r.studentCode
+          }))}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
+
+      {classId && (
+        <AttendanceMultiExportModal
+          open={multiExportOpen}
+          classId={classId}
+          className={String(classOptions.find((c) => c.value === classId)?.label ?? '')}
+          onClose={() => setMultiExportOpen(false)}
+        />
+      )}
+
+      {classId && (
+        <AttendanceMultiImportModal
+          open={multiImportOpen}
+          classId={classId}
+          className={String(classOptions.find((c) => c.value === classId)?.label ?? '')}
+          onClose={() => setMultiImportOpen(false)}
+        />
+      )}
     </>
   )
 }
@@ -377,6 +487,7 @@ export default function AttendancePage() {
 /* ----------------------- Tab lịch sử ----------------------- */
 
 function AttendanceHistoryTab() {
+  const { exportExcel, exporting } = useExport()
   const table = useTableQuery<{ classId?: number; status?: AttendanceStatus; from?: string; to?: string }>({
     defaultPageSize: 20,
     defaultFilters: {
@@ -448,6 +559,37 @@ function AttendanceHistoryTab() {
     }
   ]
 
+  const handleExportHistory = async (): Promise<void> => {
+    const all = await attendanceService.history({ ...table.query, page: 1, pageSize: 200 })
+    void exportExcel({
+      fileName: `Lich-su-diem-danh-${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Lịch sử điểm danh',
+      title: 'LỊCH SỬ ĐIỂM DANH',
+      columns: [
+        { key: 'sessionDate', title: 'Ngày học', width: 14 },
+        { key: 'time', title: 'Giờ', width: 14 },
+        { key: 'className', title: 'Lớp', width: 22 },
+        { key: 'courseName', title: 'Khoá học', width: 22 },
+        { key: 'studentCode', title: 'Mã HV', width: 12 },
+        { key: 'studentName', title: 'Học viên', width: 26 },
+        { key: 'statusLabel', title: 'Trạng thái', width: 18 },
+        { key: 'note', title: 'Ghi chú', width: 28 },
+        { key: 'markedByName', title: 'Người chấm', width: 20 }
+      ],
+      rows: all.items.map((r) => ({
+        sessionDate: formatDate(r.sessionDate),
+        time: `${r.startTime}–${r.endTime}`,
+        className: r.className,
+        courseName: r.courseName,
+        studentCode: r.studentCode,
+        studentName: r.studentName,
+        statusLabel: AttendanceStatusLabel[r.status],
+        note: r.note ?? '',
+        markedByName: r.markedByName ?? ''
+      }))
+    })
+  }
+
   return (
     <DataTable<AttendanceHistoryRow>
       columns={columns}
@@ -458,7 +600,7 @@ function AttendanceHistoryTab() {
       loading={isLoading || isFetching}
       onChange={table.handleTableChange}
       toolbar={
-        <Flex gap={12} wrap="wrap">
+        <Flex gap={12} wrap="wrap" align="center">
           <SearchInput
             value={table.keywordInput}
             onChange={table.setKeyword}
@@ -498,6 +640,16 @@ function AttendanceHistoryTab() {
               })
             }
           />
+          <Can permission={PERMISSIONS.ATTENDANCE_VIEW}>
+            <Button
+              icon={<DownloadOutlined />}
+              loading={exporting}
+              onClick={() => void handleExportHistory()}
+              disabled={!data?.total}
+            >
+              Xuất Excel
+            </Button>
+          </Can>
         </Flex>
       }
     />

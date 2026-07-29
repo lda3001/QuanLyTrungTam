@@ -4,7 +4,14 @@ import { audit } from './audit'
 import { AppError } from '../utils/errors'
 import type { PageResult } from '@shared/types/common'
 import type { AttendanceDetail } from '@shared/types/entities'
-import type { AttendanceHistoryQuery, AttendanceHistoryRow, MarkAttendanceInput } from '@shared/types/dto'
+import type {
+  AttendanceGridQuery,
+  AttendanceGridResult,
+  AttendanceHistoryQuery,
+  AttendanceHistoryRow,
+  MarkAttendanceInput,
+  MarkMultiAttendanceInput
+} from '@shared/types/dto'
 import { AttendanceStatus } from '@shared/constants/enums'
 
 const VALID_STATUS = new Set<string>(Object.values(AttendanceStatus))
@@ -32,6 +39,25 @@ export class AttendanceService {
 
   history(query: AttendanceHistoryQuery): PageResult<AttendanceHistoryRow> {
     return attendanceRepository.history(query ?? {})
+  }
+
+  grid(query: AttendanceGridQuery): AttendanceGridResult {
+    if (!query?.classId) throw AppError.validation('Chưa chọn lớp học.')
+    return attendanceRepository.grid(query)
+  }
+
+  markMulti(input: MarkMultiAttendanceInput): number {
+    if (!input.sessions?.length) throw AppError.validation('Không có buổi nào để điểm danh.')
+    for (const sess of input.sessions) {
+      for (const item of sess.items) {
+        if (!VALID_STATUS.has(item.status)) {
+          throw AppError.validation(`Trạng thái không hợp lệ: ${item.status}`)
+        }
+      }
+    }
+    const count = attendanceRepository.markMulti(input, sessionStore.userId())
+    audit('mark', 'attendance', null, `Điểm danh nhiều buổi: ${input.sessions.length} buổi, ${count} bản ghi`)
+    return count
   }
 
   studentSummary(studentId: number): { present: number; excused: number; absent: number; late: number; total: number } {

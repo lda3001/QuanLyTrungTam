@@ -18,6 +18,8 @@ import type {
 } from '../types/entities'
 import type {
   AdminResetPasswordInput,
+  AttendanceGridQuery,
+  AttendanceGridResult,
   AttendanceHistoryQuery,
   AttendanceHistoryRow,
   AttendanceReportRow,
@@ -38,6 +40,7 @@ import type {
   LoginInput,
   LogQuery,
   MarkAttendanceInput,
+  MarkMultiAttendanceInput,
   MoveSessionInput,
   PaymentInput,
   PaymentQuery,
@@ -136,7 +139,9 @@ export interface AppApi {
   attendance: {
     bySession(sessionId: number): R<AttendanceDetail[]>
     mark(input: MarkAttendanceInput): R<number>
+    markMulti(input: MarkMultiAttendanceInput): R<number>
     history(query: AttendanceHistoryQuery): R<PageResult<AttendanceHistoryRow>>
+    grid(query: AttendanceGridQuery): R<AttendanceGridResult>
     studentSummary(
       studentId: number
     ): R<{ present: number; excused: number; absent: number; late: number; total: number }>
@@ -195,6 +200,7 @@ export interface AppApi {
     exportExcel(req: ExportRequest): R<string | null>
     exportPdf(req: ExportPdfRequest): R<string | null>
     importExcel(): R<{ fileName: string; rows: Record<string, unknown>[] } | null>
+    importExcelRaw(): R<{ fileName: string; matrix: unknown[][] } | null>
     printHtml(html: string): R<boolean>
   }
 

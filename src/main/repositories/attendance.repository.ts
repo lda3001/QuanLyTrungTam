@@ -3,7 +3,17 @@ import { AppError } from '../utils/errors'
 import { likeParam, normalizePage, toPageResult } from '../utils/pagination'
 import type { PageResult } from '@shared/types/common'
 import type { Attendance, AttendanceDetail } from '@shared/types/entities'
-import type { AttendanceHistoryQuery, AttendanceHistoryRow, MarkAttendanceInput } from '@shared/types/dto'
+import type {
+  AttendanceGridQuery,
+  AttendanceGridResult,
+  AttendanceGridSession,
+  AttendanceGridStudent,
+  AttendanceHistoryQuery,
+  AttendanceHistoryRow,
+  MarkAttendanceInput,
+  MarkMultiAttendanceInput
+} from '@shared/types/dto'
+import type { AttendanceStatus } from '@shared/constants/enums'
 
 export class AttendanceRepository extends BaseRepository<Attendance> {
   protected readonly tableName = 'attendance'
@@ -96,6 +106,120 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
         .run(now, input.sessionId)
 
       return input.items.length
+    })
+  }
+
+  /**
+   * Bảng điểm danh nhiều buổi (dạng lưới) cho một lớp trong khoảng ngày.
+   *
+   * Trả riêng ba phần — danh sách buổi (cột), danh sách học viên đang theo học
+   * (hàng) và map trạng thái đã chấm — để phía xuất Excel tự dựng lưới. Học
+   * viên và buổi lấy đầy đủ kể cả khi chưa điểm danh, nên file xuất ra khớp với
+   * đúng sĩ số hiện tại của lớp.
+   */
+  grid(query: AttendanceGridQuery): AttendanceGridResult {
+    const cls = this.sqlite
+      .prepare(
+        `SELECT cl.name AS className, co.name AS courseName
+         FROM classes cl
+         JOIN courses co ON co.id = cl.course_id
+         WHERE cl.id = ? AND cl.deleted_at IS NULL`
+      )
+      .get(query.classId) as { className: string; courseName: string } | undefined
+    if (!cls) throw AppError.notFound('Lớp học')
+
+    const sessWhere: string[] = ['class_id = ?', 'deleted_at IS NULL', "status != 'cancelled'"]
+    const sessParams: unknown[] = [query.classId]
+    if (query.from) {
+      sessWhere.push('session_date >= ?')
+      sessParams.push(query.from)
+    }
+    if (query.to) {
+      sessWhere.push('session_date <= ?')
+      sessParams.push(query.to)
+    }
+
+    const sessions = this.sqlite
+      .prepare(
+        `SELECT id, session_date AS sessionDate, start_time AS startTime, end_time AS endTime
+         FROM class_sessions
+         WHERE ${sessWhere.join(' AND ')}
+         ORDER BY session_date, start_time`
+      )
+      .all(...(sessParams as never[])) as AttendanceGridSession[]
+
+    const students = this.sqlite
+      .prepare(
+        `SELECT s.id AS studentId, s.code AS studentCode, s.full_name AS studentName,
+                s.school_class AS schoolClass, s.guardian_phone AS guardianPhone
+         FROM enrollments e
+         JOIN students s ON s.id = e.student_id
+         WHERE e.class_id = ? AND e.deleted_at IS NULL AND e.status = 'studying'
+         ORDER BY s.full_name`
+      )
+      .all(query.classId) as AttendanceGridStudent[]
+
+    const marks: Record<number, Record<number, AttendanceStatus>> = {}
+    if (sessions.length > 0) {
+      const placeholders = sessions.map(() => '?').join(',')
+      const rows = this.sqlite
+        .prepare(
+          `SELECT session_id AS sessionId, student_id AS studentId, status
+           FROM attendance
+           WHERE session_id IN (${placeholders}) AND deleted_at IS NULL`
+        )
+        .all(...(sessions.map((s) => s.id) as never[])) as {
+        sessionId: number
+        studentId: number
+        status: AttendanceStatus
+      }[]
+
+      for (const r of rows) {
+        ;(marks[r.studentId] ??= {})[r.sessionId] = r.status
+      }
+    }
+
+    return { className: cls.className, courseName: cls.courseName, sessions, students, marks }
+  }
+
+  /**
+   * Ghi điểm danh cho nhiều buổi trong một transaction. Bỏ qua buổi đã huỷ
+   * thay vì ném lỗi — người dùng nhập từ file nên không nên dừng toàn bộ.
+   * Trả về tổng số bản ghi đã upsert.
+   */
+  markMulti(input: MarkMultiAttendanceInput, markedBy: number | null): number {
+    return this.transaction(() => {
+      const now = Date.now()
+      const upsert = this.sqlite.prepare(
+        `INSERT INTO attendance
+          (session_id, student_id, status, note, marked_by, marked_at, created_at, updated_at, deleted_at)
+         VALUES (?,?,?,?,?,?,?,?,NULL)
+         ON CONFLICT(session_id, student_id) DO UPDATE SET
+           status = excluded.status,
+           note = excluded.note,
+           marked_by = excluded.marked_by,
+           marked_at = excluded.marked_at,
+           updated_at = excluded.updated_at,
+           deleted_at = NULL`
+      )
+      const doneSession = this.sqlite.prepare(
+        `UPDATE class_sessions SET status = 'done', updated_at = ? WHERE id = ? AND status = 'scheduled'`
+      )
+
+      let total = 0
+      for (const sess of input.sessions) {
+        const session = this.sqlite
+          .prepare(`SELECT id, status FROM class_sessions WHERE id = ? AND deleted_at IS NULL`)
+          .get(sess.sessionId) as { id: number; status: string } | undefined
+        if (!session || session.status === 'cancelled') continue
+
+        for (const item of sess.items) {
+          upsert.run(sess.sessionId, item.studentId, item.status, item.note?.trim() || null, markedBy, now, now, now)
+          total++
+        }
+        doneSession.run(now, sess.sessionId)
+      }
+      return total
     })
   }
 

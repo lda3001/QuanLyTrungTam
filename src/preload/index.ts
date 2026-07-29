@@ -86,7 +86,9 @@ const api: AppApi = {
   attendance: {
     bySession: (id) => invoke(IPC.ATTENDANCE_BY_SESSION, id),
     mark: (input) => invoke(IPC.ATTENDANCE_MARK, input),
+    markMulti: (input) => invoke(IPC.ATTENDANCE_MARK_MULTI, input),
     history: (query) => invoke(IPC.ATTENDANCE_HISTORY, query),
+    grid: (query) => invoke(IPC.ATTENDANCE_GRID, query),
     studentSummary: (id) => invoke(IPC.ATTENDANCE_STUDENT_SUMMARY, id)
   },
 
@@ -143,6 +145,7 @@ const api: AppApi = {
     exportExcel: (req) => invoke(IPC.FILE_EXPORT_EXCEL, req),
     exportPdf: (req) => invoke(IPC.FILE_EXPORT_PDF, req),
     importExcel: () => invoke(IPC.FILE_IMPORT_EXCEL),
+    importExcelRaw: () => invoke(IPC.FILE_IMPORT_EXCEL_RAW),
     printHtml: (html) => invoke(IPC.FILE_PRINT_HTML, html)
   },
 

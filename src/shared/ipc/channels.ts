@@ -71,6 +71,8 @@ export const IPC = {
   ATTENDANCE_BY_SESSION: 'attendance:by-session',
   ATTENDANCE_MARK: 'attendance:mark',
   ATTENDANCE_HISTORY: 'attendance:history',
+  ATTENDANCE_GRID: 'attendance:grid',
+  ATTENDANCE_MARK_MULTI: 'attendance:mark-multi',
   ATTENDANCE_STUDENT_SUMMARY: 'attendance:student-summary',
 
   // Payment
@@ -113,6 +115,7 @@ export const IPC = {
   FILE_EXPORT_EXCEL: 'file:export-excel',
   FILE_EXPORT_PDF: 'file:export-pdf',
   FILE_IMPORT_EXCEL: 'file:import-excel',
+  FILE_IMPORT_EXCEL_RAW: 'file:import-excel-raw',
   FILE_PRINT_HTML: 'file:print-html',
   APP_INFO: 'app:info',
   WINDOW_MINIMIZE: 'window:minimize',
