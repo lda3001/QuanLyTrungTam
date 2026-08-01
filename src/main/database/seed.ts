@@ -431,6 +431,6 @@ function seedDemoData(db: DB, sqlite: Database.Database, now: number): void {
     })
   })
 
-  //run()
+  run()
   console.info('[db] Đã tạo dữ liệu mẫu (60 học viên, 5 lớp, 5 khoá học).')
 }

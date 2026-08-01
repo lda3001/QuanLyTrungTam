@@ -1,4 +1,5 @@
 import { api, call } from './ipc-client'
+import { browserFileService } from './file-web.service'
 import type { PageResult, SelectOption } from '@shared/types/common'
 import type {
   ActivityLog,
@@ -15,8 +16,6 @@ import type {
   DashboardData,
   DebtQuery,
   DebtRow,
-  ExportPdfRequest,
-  ExportRequest,
   LogQuery,
   PaymentInput,
   PaymentQuery,
@@ -81,15 +80,7 @@ export const logService = {
   list: (q: LogQuery): Promise<PageResult<ActivityLog>> => call(api().logs.list(q))
 }
 
-export const fileService = {
-  exportExcel: (req: ExportRequest): Promise<string | null> => call(api().files.exportExcel(req)),
-  exportPdf: (req: ExportPdfRequest): Promise<string | null> => call(api().files.exportPdf(req)),
-  importExcel: (): Promise<{ fileName: string; rows: Record<string, unknown>[] } | null> =>
-    call(api().files.importExcel()),
-  importExcelRaw: (): Promise<{ fileName: string; matrix: unknown[][] } | null> =>
-    call(api().files.importExcelRaw()),
-  printHtml: (html: string): Promise<boolean> => call(api().files.printHtml(html))
-}
+export const fileService = browserFileService
 
 export const appService = {
   info: (): Promise<{ version: string; platform: string; dbPath: string }> => call(api().app.info())

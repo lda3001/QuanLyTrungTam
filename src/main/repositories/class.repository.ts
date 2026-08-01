@@ -498,10 +498,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
       )
     }
 
-    const now = Date.now()
     const res = this.sqlite
-      .prepare(`UPDATE enrollments SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`)
-      .run(now, now, enrollmentId)
+      .prepare(`DELETE FROM enrollments WHERE id = ? AND deleted_at IS NULL`)
+      .run(enrollmentId)
     return res.changes > 0
   }
 

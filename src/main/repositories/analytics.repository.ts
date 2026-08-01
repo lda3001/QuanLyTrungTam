@@ -178,7 +178,7 @@ export class AnalyticsRepository extends BaseRepository<{ id: number }> {
          JOIN courses co ON co.id = cl.course_id
          LEFT JOIN teachers t ON t.id = cs.teacher_id
          LEFT JOIN teachers tc ON tc.id = cl.teacher_id
-         WHERE cs.deleted_at IS NULL AND cs.session_date = ?
+         WHERE cs.deleted_at IS NULL AND cs.session_date = ? AND cs.status <> 'cancelled'
          ORDER BY cs.start_time`
       )
       .all(today) as TodaySessionRow[]
@@ -190,7 +190,7 @@ export class AnalyticsRepository extends BaseRepository<{ id: number }> {
         `SELECT p.id, p.code, s.full_name AS studentName, p.amount,
                 p.paid_date AS paidDate, p.method
          FROM payments p JOIN students s ON s.id = p.student_id
-         WHERE p.deleted_at IS NULL
+         WHERE p.deleted_at IS NULL AND p.status <> 'refunded'
          ORDER BY p.created_at DESC LIMIT 8`
       )
       .all() as DashboardData['recentPayments']

@@ -1,5 +1,6 @@
 import type { AuthUser } from '@shared/types/entities'
 import type { Permission } from '@shared/constants/permissions'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 /**
  * Phiên đăng nhập, lưu trong bộ nhớ của main process.
@@ -11,37 +12,48 @@ import type { Permission } from '@shared/constants/permissions'
  * Đóng app là mất phiên — đúng mong đợi với phần mềm quản lý dùng tại quầy.
  */
 class SessionStore {
-  private currentUser: AuthUser | null = null
+  private readonly context = new AsyncLocalStorage<{ user: AuthUser | null }>()
+
+  run<T>(user: AuthUser | null, callback: () => T): T {
+    return this.context.run({ user }, callback)
+  }
+
+  private get state(): { user: AuthUser | null } {
+    const state = this.context.getStore()
+    if (!state) throw new Error('Session context chưa được khởi tạo.')
+    return state
+  }
 
   set(user: AuthUser | null): void {
-    this.currentUser = user
+    this.state.user = user
   }
 
   get(): AuthUser | null {
-    return this.currentUser
+    return this.context.getStore()?.user ?? null
   }
 
   clear(): void {
-    this.currentUser = null
+    this.state.user = null
   }
 
   isAuthenticated(): boolean {
-    return this.currentUser !== null
+    return this.get() !== null
   }
 
   has(permission: Permission): boolean {
-    if (!this.currentUser) return false
+    const currentUser = this.get()
+    if (!currentUser) return false
     // Admin bỏ qua kiểm tra chi tiết — luôn toàn quyền
-    if (this.currentUser.roleCode === 'admin') return true
-    return this.currentUser.permissions.includes(permission)
+    if (currentUser.roleCode === 'admin') return true
+    return currentUser.permissions.includes(permission)
   }
 
   userId(): number | null {
-    return this.currentUser?.id ?? null
+    return this.get()?.id ?? null
   }
 
   username(): string | null {
-    return this.currentUser?.username ?? null
+    return this.get()?.username ?? null
   }
 }
 

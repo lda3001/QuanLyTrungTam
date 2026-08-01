@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, Col, Empty, Flex, List, Row, Skeleton, Space, Table, Tag, Typography, theme } from 'antd'
+import { Alert, Card, Col, Empty, Flex, List, Row, Skeleton, Space, Table, Tag, Typography, theme } from 'antd'
 import {
   BankOutlined,
   CalendarOutlined,
@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { token } = theme.useToken()
 
-  const { data, isLoading } = useQuery({
+  const { data, error, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => dashboardService.data(),
     // Số liệu tổng quan không cần tuyệt đối tức thời — 1 phút là đủ tươi
@@ -123,6 +123,16 @@ export default function DashboardPage() {
       />
 
       {/* ---------------- Thẻ số liệu ---------------- */}
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          message="Không tải được số liệu tổng quan"
+          description={error.message}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={8} xxl={4}>
           <StatCard

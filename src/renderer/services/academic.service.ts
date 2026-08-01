@@ -1,4 +1,5 @@
 import { api, call } from './ipc-client'
+import { browserFileService } from './file-web.service'
 import type { PageResult, SelectOption } from '@shared/types/common'
 import type {
   AttendanceDetail,
@@ -46,7 +47,7 @@ export const studentService = {
   options: (keyword?: string): Promise<SelectOption[]> => call(api().students.options(keyword)),
   schoolClasses: (): Promise<string[]> => call(api().students.schoolClasses()),
   importRows: (rows: StudentImportRow[]): Promise<ImportResult> => call(api().students.importRows(rows)),
-  importTemplate: (): Promise<string | null> => call(api().students.importTemplate()),
+  importTemplate: (): Promise<string | null> => browserFileService.downloadStudentTemplate(),
   classes: (id: number): Promise<EnrollmentDetail[]> => call(api().students.classes(id)),
   payments: (id: number): Promise<PaymentDetail[]> => call(api().students.payments(id))
 }
@@ -82,7 +83,7 @@ export const classService = {
   enroll: (i: EnrollInput): Promise<number> => call(api().classes.enroll(i)),
   unenroll: (id: number): Promise<boolean> => call(api().classes.unenroll(id)),
   enrollImport: (i: EnrollImportInput): Promise<ImportResult> => call(api().classes.enrollImport(i)),
-  enrollTemplate: (): Promise<string | null> => call(api().classes.enrollTemplate())
+  enrollTemplate: (): Promise<string | null> => browserFileService.downloadEnrollTemplate()
 }
 
 export const scheduleService = {

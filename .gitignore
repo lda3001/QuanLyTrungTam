@@ -8,3 +8,7 @@ release
 *.log
 data/*.db
 .claude
+dist-server/
+dist-web/
+release/QuanLyTrungTam-local/
+data

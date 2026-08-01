@@ -1,6 +1,5 @@
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { existsSync, mkdirSync } from 'node:fs'
-import { app } from 'electron'
 import Database from 'better-sqlite3'
 import { drizzle, type BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from './schema'
@@ -21,7 +20,25 @@ let dbFilePath = ''
  * quyền trên máy người dùng thật.
  */
 export function getDatabasePath(): string {
-  const dir = join(app.getPath('userData'), 'data')
+  // DATABASE_DIR takes precedence for deployed/portable installations.
+  const configuredDir = process.env['DATABASE_DIR']
+  if (configuredDir) {
+    const dir = resolve(configuredDir)
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+    return join(dir, 'center.db')
+  }
+
+  // Keep existing Electron installations working after moving the UI to the
+  // web server. Previously, data lived under Electron's userData directory.
+  // Prefer that database when it exists instead of silently creating a second,
+  // empty database in the project directory.
+  const appData = process.env['APPDATA']
+  const legacyDir = appData ? join(appData, 'quanly-trungtam', 'data') : undefined
+  if (legacyDir && existsSync(join(legacyDir, 'center.db'))) {
+    return join(legacyDir, 'center.db')
+  }
+
+  const dir = resolve('data')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   return join(dir, 'center.db')
 }

@@ -55,21 +55,19 @@ export abstract class BaseRepository<TEntity extends { id: number }> {
 
   softDelete(id: number): boolean {
     const res = this.sqlite
-      .prepare(`UPDATE ${this.tableName} SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`)
-      .run(Date.now(), Date.now(), id)
+      .prepare(`DELETE FROM ${this.tableName} WHERE id = ? AND deleted_at IS NULL`)
+      .run(id)
     return res.changes > 0
   }
 
   softDeleteMany(ids: number[]): number {
     if (ids.length === 0) return 0
     const placeholders = ids.map(() => '?').join(',')
-    const now = Date.now()
     const res = this.sqlite
       .prepare(
-        `UPDATE ${this.tableName} SET deleted_at = ?, updated_at = ?
-         WHERE id IN (${placeholders}) AND deleted_at IS NULL`
+        `DELETE FROM ${this.tableName} WHERE id IN (${placeholders}) AND deleted_at IS NULL`
       )
-      .run(now, now, ...ids)
+      .run(...ids)
     return res.changes
   }
 
