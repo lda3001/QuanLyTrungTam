@@ -1,5 +1,6 @@
+import { MuiDatePickerApi as DatePicker } from '@/components/common/MuiControls'
 import { useState } from 'react'
-import { Alert, DatePicker, Modal, Space, Typography } from 'antd'
+import { Alert, Modal, Space, Typography } from 'antd'
 import { DownloadOutlined } from '@ant-design/icons'
 import { useMutation } from '@tanstack/react-query'
 import { attendanceService } from '@/services/academic.service'

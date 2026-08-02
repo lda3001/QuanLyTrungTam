@@ -1,5 +1,6 @@
+import { MuiDatePickerApi as DatePicker, MuiSelect as Select } from '@/components/common/MuiControls'
 import { useMemo } from 'react'
-import { DatePicker, Flex, Select, Space, Tag, Typography } from 'antd'
+import { Flex, Space, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { AuditOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'

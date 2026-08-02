@@ -1,5 +1,6 @@
+import { MuiDatePickerApi as DatePicker } from '@/components/common/MuiControls'
 import { useEffect, useState } from 'react'
-import { Alert, DatePicker, Flex, InputNumber, Modal, Space, Table, Typography } from 'antd'
+import { Alert, Flex, InputNumber, Modal, Space, Table, Typography } from 'antd'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { SearchInput } from '@/components/common'
 import { useDebounce } from '@/hooks/useDebounce'

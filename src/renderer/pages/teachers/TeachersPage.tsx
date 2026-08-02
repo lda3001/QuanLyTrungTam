@@ -1,5 +1,6 @@
+import { MuiDropdown as Dropdown, MuiSelect as Select } from '@/components/common/MuiControls'
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Col, Drawer, Dropdown, Flex, Form, Row, Select, Space, Spin, Typography } from 'antd'
+import { Button, Col, Drawer, Flex, Form, Row, Space, Spin, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   DeleteOutlined,

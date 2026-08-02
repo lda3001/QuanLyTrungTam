@@ -1,20 +1,7 @@
+import { MuiSelect as Select } from '@/components/common/MuiControls'
 import { useEffect } from 'react'
-import {
-  Alert,
-  Button,
-  Card,
-  Col,
-  Drawer,
-  Flex,
-  Form,
-  Input,
-  Row,
-  Select,
-  Space,
-  Spin,
-  TimePicker,
-  Typography
-} from 'antd'
+import { MuiTimePicker as TimePicker } from '@/components/common/MuiControls'
+import { Alert, Button, Card, Col, Drawer, Flex, Form, Input, Row, Space, Spin, Typography } from 'antd'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'

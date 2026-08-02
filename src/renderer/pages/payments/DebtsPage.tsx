@@ -1,5 +1,6 @@
+import { MuiSelect as Select } from '@/components/common/MuiControls'
 import { useMemo, useState } from 'react'
-import { Button, Card, Col, Flex, Progress, Row, Select, Space, Statistic, Switch, Tag, Typography } from 'antd'
+import { Button, Card, Col, Flex, Progress, Row, Space, Statistic, Switch, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { AuditOutlined, DollarOutlined, FileExcelOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'

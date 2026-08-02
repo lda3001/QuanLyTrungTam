@@ -1,22 +1,6 @@
+import { MuiDropdown as Dropdown, MuiSelect as Select } from '@/components/common/MuiControls'
 import { useMemo, useState, type DragEvent, type ReactElement } from 'react'
-import {
-  Alert,
-  Badge,
-  Button,
-  Calendar,
-  Card,
-  Col,
-  Dropdown,
-  Flex,
-  Row,
-  Segmented,
-  Select,
-  Space,
-  Spin,
-  Tooltip,
-  Typography,
-  theme
-} from 'antd'
+import { Alert, Badge, Button, Calendar, Card, Col, Flex, Row, Segmented, Space, Spin, Tooltip, Typography, theme } from 'antd'
 import type { Dayjs } from 'dayjs'
 import {
   CalendarOutlined,

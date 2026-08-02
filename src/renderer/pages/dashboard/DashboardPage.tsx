@@ -55,8 +55,10 @@ export default function DashboardPage() {
   const { data, error, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => dashboardService.data(),
-    // Số liệu tổng quan không cần tuyệt đối tức thời — 1 phút là đủ tươi
-    staleTime: 60_000
+    // Giữ cache ngắn để chuyển trang mượt, nhưng luôn làm mới khi quay lại Dashboard.
+    staleTime: 60_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true 
   })
 
   const summary = data?.summary

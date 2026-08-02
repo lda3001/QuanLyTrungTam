@@ -1,24 +1,6 @@
+import { MuiDatePickerApi as DatePicker, MuiSelect as Select } from '@/components/common/MuiControls'
 import { useEffect, useMemo, useState } from 'react'
-import {
-  Alert,
-  Button,
-  Card,
-  Col,
-  DatePicker,
-  Empty,
-  Flex,
-  Input,
-  Radio,
-  Row,
-  Segmented,
-  Select,
-  Space,
-  Statistic,
-  Table,
-  Tabs,
-  Tag,
-  Typography
-} from 'antd'
+import { Alert, Button, Card, Col, Empty, Flex, Input, Radio, Row, Segmented, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { CheckSquareOutlined, DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'

@@ -10,6 +10,9 @@ import { authService } from '@/services/auth.service'
 import { ApiError } from '@/services/ipc-client'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { dayjs } from '@/utils/format'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
 
 /**
  * Cấu hình React Query cho ứng dụng desktop.
@@ -86,7 +89,8 @@ export default function App() {
         fontSize: 14,
         fontFamily:
           "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-        colorBgLayout: themeMode === 'dark' ? '#141414' : '#f5f7fb'
+        colorBgLayout: themeMode === 'dark' ? '#141414' : '#f5f7fb',
+        zIndexPopupBase: 2000
       },
       components: {
         Layout: {
@@ -114,6 +118,33 @@ export default function App() {
     [themeMode, primaryColor, compact]
   )
 
+  const muiTheme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: themeMode,
+          primary: { main: primaryColor },
+          background: { default: themeMode === 'dark' ? '#141414' : '#f5f7fb', paper: themeMode === 'dark' ? '#1f1f1f' : '#fff' }
+        },
+        shape: { borderRadius: 10 },
+        typography: {
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif",
+          fontSize: 14
+        },
+        components: {
+          MuiOutlinedInput: {
+            styleOverrides: {
+              root: { borderRadius: 9, backgroundColor: themeMode === 'dark' ? '#1f1f1f' : '#fff', transition: 'box-shadow .18s ease, border-color .18s ease' },
+              notchedOutline: { borderColor: themeMode === 'dark' ? '#424242' : '#d9e1ec' }
+            }
+          },
+          MuiMenuItem: { styleOverrides: { root: { minHeight: 36, borderRadius: 7, margin: '2px 4px' } } },
+          MuiPaper: { styleOverrides: { rounded: { borderRadius: 10 } } }
+        }
+      }),
+    [themeMode, primaryColor]
+  )
+
   return (
     <ConfigProvider
       locale={viVN}
@@ -126,9 +157,13 @@ export default function App() {
         message={{ maxCount: 3, duration: 2.5 }}
       >
         <QueryClientProvider client={queryClient}>
-          <ErrorBoundary>
-            <RouterProvider router={router} />
-          </ErrorBoundary>
+          <ThemeProvider theme={muiTheme}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="vi">
+              <ErrorBoundary>
+                <RouterProvider router={router} />
+              </ErrorBoundary>
+            </LocalizationProvider>
+          </ThemeProvider>
         </QueryClientProvider>
       </AntdApp>
     </ConfigProvider>

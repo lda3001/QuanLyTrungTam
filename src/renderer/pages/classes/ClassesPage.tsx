@@ -1,6 +1,7 @@
+import { MuiDropdown as Dropdown, MuiSelect as Select } from '@/components/common/MuiControls'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Dropdown, Progress, Select, Space, Tag, Tooltip, Typography } from 'antd'
+import { Button, Progress, Space, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import {
   BankOutlined,

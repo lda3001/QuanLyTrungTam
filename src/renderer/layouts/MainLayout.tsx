@@ -1,6 +1,7 @@
+import { MuiDropdown as Dropdown } from '@/components/common/MuiControls'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Space, Tag, Tooltip, Typography, theme } from 'antd'
+import { Avatar, Button, Drawer, Grid, Layout, Menu, Space, Tag, Tooltip, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import {
   BulbFilled,

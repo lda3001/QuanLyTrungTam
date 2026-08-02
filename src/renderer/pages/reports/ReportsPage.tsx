@@ -1,22 +1,6 @@
+import { MuiDatePickerApi as DatePicker } from '@/components/common/MuiControls'
 import { useMemo, useState } from 'react'
-import {
-  Button,
-  Card,
-  Col,
-  DatePicker,
-  Empty,
-  Flex,
-  Progress,
-  Row,
-  Segmented,
-  Space,
-  Statistic,
-  Table,
-  Tabs,
-  Tag,
-  Typography,
-  theme
-} from 'antd'
+import { Button, Card, Col, Empty, Flex, Progress, Row, Segmented, Space, Statistic, Table, Tabs, Tag, Typography, theme } from 'antd'
 import { BarChartOutlined, FileExcelOutlined, FilePdfOutlined, PrinterOutlined } from '@ant-design/icons'
 import {
   Bar,
