@@ -22,6 +22,7 @@ for (const directory of required) {
 }
 
 await cp(process.execPath, join(output, 'runtime', 'node.exe'))
+await cp(join(root, 'scripts', 'portable', 'update-from-github.bat'), join(output, 'update-from-github.bat'))
 
 await writeFile(
   join(output, 'start-local.cmd'),
@@ -33,7 +34,7 @@ set "DATABASE_DIR=%~dp0data"
 
 if not exist "%DATABASE_DIR%" mkdir "%DATABASE_DIR%"
 
-start "Quan Ly Trung Tam server" /b "%~dp0runtime\\node.exe" "%~dp0dist-server\\index.mjs"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$p=Start-Process -FilePath '%~dp0runtime\\node.exe' -ArgumentList '%~dp0dist-server\\index.mjs' -WorkingDirectory '%~dp0' -WindowStyle Hidden -PassThru; Set-Content -LiteralPath '%~dp0.server.pid' -Value $p.Id -Encoding ascii"
 
 timeout /t 2 /nobreak > nul
 start "" http://localhost:3001
