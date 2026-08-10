@@ -116,17 +116,48 @@ export class FileService {
 
   /** Mở hộp thoại in của hệ điều hành với nội dung HTML dựng sẵn */
   async printHtml(html: string): Promise<boolean> {
-    const win = createHiddenWindow()
+    // Trên Windows, hộp thoại in gắn với BrowserWindow đang ẩn có thể không
+    // xuất hiện. Dùng cửa sổ xem trước có main window làm owner để dialog luôn
+    // nổi lên đúng phía trước ứng dụng Electron.
+    const parent =
+      BrowserWindow.getFocusedWindow() ??
+      BrowserWindow.getAllWindows().find((item) => item.isVisible())
+    const win = createPrintWindow(parent)
     try {
       await loadHtml(win, html)
-      return await new Promise<boolean>((resolve) => {
-        win.webContents.print({ silent: false, printBackground: true }, (success) => resolve(success))
+      if (win.isDestroyed()) return false
+
+      win.show()
+      win.focus()
+      // Cho Chromium một nhịp vẽ trang trước khi hệ điều hành chụp nội dung in.
+      await new Promise<void>((resolve) => setTimeout(resolve, 200))
+
+      return await new Promise<boolean>((resolve, reject) => {
+        win.webContents.print(
+          {
+            silent: false,
+            printBackground: true,
+            pageSize: 'A4',
+            landscape: false,
+            color: true
+          },
+          (success, failureReason) => {
+            if (success || !failureReason || /cancel/i.test(failureReason)) {
+              resolve(success)
+              return
+            }
+            reject(AppError.validation(`Không thể mở hộp thoại in: ${failureReason}`))
+          }
+        )
       })
     } finally {
-      // Đóng trễ một nhịp để hộp thoại in kịp lấy nội dung
+      // Callback chỉ xác nhận job đã được khởi tạo; driver (đặc biệt Microsoft
+      // Print to PDF) vẫn có thể đọc nội dung sau đó. Ẩn preview ngay nhưng giữ
+      // webContents sống đủ lâu để tránh job nhận trang rỗng.
+      if (!win.isDestroyed()) win.hide()
       setTimeout(() => {
         if (!win.isDestroyed()) win.destroy()
-      }, 1000)
+      }, 15_000)
     }
   }
 
@@ -285,10 +316,32 @@ function createHiddenWindow(): BrowserWindow {
   })
 }
 
+function createPrintWindow(parent?: BrowserWindow): BrowserWindow {
+  return new BrowserWindow({
+    width: 900,
+    height: 720,
+    show: false,
+    parent,
+    modal: Boolean(parent),
+    title: 'In phiếu thu',
+    autoHideMenuBar: true,
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      javascript: false
+    }
+  })
+}
+
 async function loadHtml(win: BrowserWindow, html: string): Promise<void> {
   // Ghi ra file tạm thay vì data: URL — data: URL có giới hạn độ dài và
   // dễ vỡ với nội dung tiếng Việt dài.
-  const tmpPath = join(app.getPath('temp'), `print-${Date.now()}-${Math.floor(Math.random() * 1e6)}.html`)
+  const tmpPath = join(
+    app.getPath('temp'),
+    `print-${Date.now()}-${Math.floor(Math.random() * 1e6)}.html`
+  )
   await writeFile(tmpPath, html, 'utf8')
 
   try {

@@ -51,7 +51,8 @@ export function useExport() {
   const print = useCallback(
     async (html: string) => {
       try {
-        await fileService.printHtml(html)
+        const printed = await fileService.printHtml(html)
+        if (!printed) notify.warning('Đã hủy lệnh in hoặc chưa chọn máy in.')
       } catch (err) {
         notify.error(err)
       }
