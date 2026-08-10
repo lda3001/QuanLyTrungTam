@@ -47,7 +47,10 @@ export const studentService = {
   options: (keyword?: string): Promise<SelectOption[]> => call(api().students.options(keyword)),
   schoolClasses: (): Promise<string[]> => call(api().students.schoolClasses()),
   importRows: (rows: StudentImportRow[]): Promise<ImportResult> => call(api().students.importRows(rows)),
-  importTemplate: (): Promise<string | null> => browserFileService.downloadStudentTemplate(),
+  importTemplate: (): Promise<string | null> =>
+    window.api
+      ? call(api().students.importTemplate())
+      : browserFileService.downloadStudentTemplate(),
   classes: (id: number): Promise<EnrollmentDetail[]> => call(api().students.classes(id)),
   payments: (id: number): Promise<PaymentDetail[]> => call(api().students.payments(id))
 }
@@ -83,7 +86,10 @@ export const classService = {
   enroll: (i: EnrollInput): Promise<number> => call(api().classes.enroll(i)),
   unenroll: (id: number): Promise<boolean> => call(api().classes.unenroll(id)),
   enrollImport: (i: EnrollImportInput): Promise<ImportResult> => call(api().classes.enrollImport(i)),
-  enrollTemplate: (): Promise<string | null> => browserFileService.downloadEnrollTemplate()
+  enrollTemplate: (): Promise<string | null> =>
+    window.api
+      ? call(api().classes.enrollTemplate())
+      : browserFileService.downloadEnrollTemplate()
 }
 
 export const scheduleService = {

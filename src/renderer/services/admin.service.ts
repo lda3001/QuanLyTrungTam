@@ -16,6 +16,8 @@ import type {
   DashboardData,
   DebtQuery,
   DebtRow,
+  ExportPdfRequest,
+  ExportRequest,
   LogQuery,
   PaymentInput,
   PaymentQuery,
@@ -80,7 +82,19 @@ export const logService = {
   list: (q: LogQuery): Promise<PageResult<ActivityLog>> => call(api().logs.list(q))
 }
 
-export const fileService = browserFileService
+/** Use native Windows dialogs/printing in Electron and browser downloads on the web. */
+export const fileService = {
+  exportExcel: (req: ExportRequest): Promise<string | null> =>
+    window.api ? call(api().files.exportExcel(req)) : browserFileService.exportExcel(req),
+  exportPdf: (req: ExportPdfRequest): Promise<string | null> =>
+    window.api ? call(api().files.exportPdf(req)) : browserFileService.exportPdf(req),
+  importExcel: (): Promise<{ fileName: string; rows: Record<string, unknown>[] } | null> =>
+    window.api ? call(api().files.importExcel()) : browserFileService.importExcel(),
+  importExcelRaw: (): Promise<{ fileName: string; matrix: unknown[][] } | null> =>
+    window.api ? call(api().files.importExcelRaw()) : browserFileService.importExcelRaw(),
+  printHtml: (html: string): Promise<boolean> =>
+    window.api ? call(api().files.printHtml(html)) : browserFileService.printHtml(html)
+}
 
 export const appService = {
   info: (): Promise<{ version: string; platform: string; dbPath: string }> => call(api().app.info())

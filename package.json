@@ -11,7 +11,15 @@
       "icon": "build/icon.icns"
     },
     "win": {
-      "icon": "build/iconreal.ico"
+      "icon": "build/iconreal.ico",
+      "target": "nsis",
+      "artifactName": "QuanLyTrungTam-${version}-setup.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "lda3001",
+      "repo": "QuanLyTrungTam",
+      "releaseType": "release"
     },
     "nsis": {
       "oneClick": false,
@@ -22,18 +30,22 @@
     }
   },
   "scripts": {
-    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "npm run build:server && node dist-server/index.mjs",
+    "dev": "concurrently \"npm run dev:server\" \"electron-vite dev\"",
+    "dev:web": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run build:server && node scripts/run-with-electron-node.mjs dist-server/index.mjs",
     "dev:client": "vite",
-    "start": "npm run build:server && node dist-server/index.mjs",
-    "build": "npm run typecheck && vite build && npm run build:server",
+    "start": "electron-vite preview",
+    "start:web": "npm run build:server && node scripts/run-with-electron-node.mjs dist-server/index.mjs",
+    "build": "npm run typecheck && electron-vite build",
+    "build:web": "npm run typecheck && vite build && npm run build:server",
     "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --alias:@shared=./src/shared --alias:@main=./src/main --outfile=dist-server/index.mjs",
     "build:client": "vite build",
-    "package:portable": "npm run build && node scripts/package-portable.mjs",
+    "package:portable": "npm run build:web && node scripts/package-portable.mjs",
     "build:github-update": "node scripts/build-github-update.mjs",
     "release:github": "node scripts/build-github-update.mjs --publish",
+    "release:electron": "npm run build && electron-builder --win --publish always",
     "postinstall": "electron-builder install-app-deps",
-    "rebuild": "electron-builder install-app-deps",
+    "rebuild": "electron-rebuild --force --which-module better-sqlite3",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
@@ -56,6 +68,7 @@
     "concurrently": "^9.1.2",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.45.2",
+    "electron-updater": "^6.6.2",
     "exceljs": "^4.4.0",
     "express": "^5.1.0",
     "express-session": "^1.18.1"

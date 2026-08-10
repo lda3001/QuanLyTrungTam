@@ -3,6 +3,7 @@ import { BrowserWindow, app, session, shell } from 'electron'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import { closeDatabase, initDatabase } from './database/connection'
 import { registerAllIpcHandlers } from './ipc'
+import { initializeAutoUpdater } from './services/auto-update.service'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -31,6 +32,19 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
+
+  mainWindow.webContents.on('did-fail-load', (_event, code, description, url) => {
+    console.error('[renderer] Không tải được trang:', { code, description, url })
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[renderer] Renderer process đã dừng:', details)
+  })
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    const log = level >= 2 ? console.error : console.log
+    log(`[renderer:${level}] ${message} (${sourceId}:${line})`)
+  })
 
   // Mọi liên kết ra ngoài mở bằng trình duyệt hệ thống, không mở cửa sổ Electron mới
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -77,7 +91,9 @@ function applyContentSecurityPolicy(): void {
         'Content-Security-Policy': [
           [
             `default-src 'self'`,
-            `script-src 'self'${is.dev ? " 'unsafe-eval'" : ''}`,
+            // Vite's React Fast Refresh injects an inline preamble in dev.
+            // Production remains strict and does not allow inline scripts.
+            `script-src 'self'${is.dev ? " 'unsafe-eval' 'unsafe-inline'" : ''}`,
             `style-src 'self' 'unsafe-inline'`,
             `img-src 'self' data: blob:`,
             `font-src 'self' data:`,
@@ -127,6 +143,7 @@ if (!gotLock) {
     }
 
     createWindow()
+    initializeAutoUpdater(() => mainWindow)
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()

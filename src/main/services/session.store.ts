@@ -13,27 +13,27 @@ import { AsyncLocalStorage } from 'node:async_hooks'
  */
 class SessionStore {
   private readonly context = new AsyncLocalStorage<{ user: AuthUser | null }>()
+  private desktopUser: AuthUser | null = null
 
   run<T>(user: AuthUser | null, callback: () => T): T {
     return this.context.run({ user }, callback)
   }
 
-  private get state(): { user: AuthUser | null } {
-    const state = this.context.getStore()
-    if (!state) throw new Error('Session context chưa được khởi tạo.')
-    return state
-  }
-
   set(user: AuthUser | null): void {
-    this.state.user = user
+    const state = this.context.getStore()
+    if (state) state.user = user
+    else this.desktopUser = user
   }
 
   get(): AuthUser | null {
-    return this.context.getStore()?.user ?? null
+    const state = this.context.getStore()
+    return state ? state.user : this.desktopUser
   }
 
   clear(): void {
-    this.state.user = null
+    const state = this.context.getStore()
+    if (state) state.user = null
+    else this.desktopUser = null
   }
 
   isAuthenticated(): boolean {
