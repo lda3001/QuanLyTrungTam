@@ -1,6 +1,6 @@
 {
   "name": "quanly-trungtam",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Ứng dụng Desktop quản lý trung tâm dạy học",
   "author": "Center Manager",
   "main": "./out/main/index.js",

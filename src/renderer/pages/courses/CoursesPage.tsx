@@ -91,6 +91,7 @@ function CourseFormModal({
       notify.success(isEdit ? 'Đã cập nhật khoá học.' : 'Đã thêm khoá học mới.')
       void queryClient.invalidateQueries({ queryKey: ['courses'] })
       void queryClient.invalidateQueries({ queryKey: ['course-options'] })
+      if (courseId !== null) void queryClient.invalidateQueries({ queryKey: ['course', courseId] })
       onClose()
     },
     onError: (err) => notify.error(err)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
@@ -19,6 +19,7 @@ import {
   ArrowLeftOutlined,
   CalendarOutlined,
   DeleteOutlined,
+  EyeOutlined,
   FileExcelOutlined,
   ThunderboltOutlined,
   UserAddOutlined,
@@ -26,7 +27,7 @@ import {
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/common/PageHeader'
-import { Can, PageSkeleton, StatusTag } from '@/components/common'
+import { Can, PageSkeleton, SearchInput, StatusTag } from '@/components/common'
 import { EnrollModal } from './EnrollModal'
 import { EnrollImportModal } from './EnrollImportModal'
 import { useNotify } from '@/hooks/useNotify'
@@ -57,6 +58,7 @@ export default function ClassDetailPage() {
 
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [enrollImportOpen, setEnrollImportOpen] = useState(false)
+  const [studentKeyword, setStudentKeyword] = useState('')
 
   const classQuery = useQuery({
     queryKey: ['class', classId],
@@ -96,6 +98,16 @@ export default function ClassDetailPage() {
     onError: (err) => notify.error(err)
   })
 
+  const students = studentsQuery.data ?? []
+  const filteredStudents = useMemo(() => {
+    const keyword = studentKeyword.trim().normalize('NFC').toLocaleLowerCase('vi-VN')
+    if (!keyword) return students
+    return students.filter((student) =>
+      student.studentCode.toLocaleLowerCase('vi-VN').includes(keyword) ||
+      student.studentName.normalize('NFC').toLocaleLowerCase('vi-VN').includes(keyword)
+    )
+  }, [students, studentKeyword])
+
   if (classQuery.isLoading) return <PageSkeleton />
 
   if (classQuery.isError || !classQuery.data) {
@@ -113,19 +125,33 @@ export default function ClassDetailPage() {
   }
 
   const classroom = classQuery.data
-  const students = studentsQuery.data ?? []
   const sessions = sessionsQuery.data ?? []
   const remainingSlots = Math.max(0, classroom.maxStudents - students.length)
 
   const totalPayable = students.reduce((s, e) => s + (e.agreedFee - e.discount), 0)
   const totalPaid = students.reduce((s, e) => s + e.paidAmount, 0)
 
+  const compareStudentName = (left: string, right: string) => {
+    const lastWord = (name: string) => name.trim().split(/\s+/).at(-1) ?? ''
+    return (
+      lastWord(left).localeCompare(lastWord(right), 'vi', { sensitivity: 'base' }) ||
+      left.localeCompare(right, 'vi', { sensitivity: 'base' })
+    )
+  }
+
   const studentColumns = [
-    { title: 'Mã HV', dataIndex: 'studentCode', width: 110 },
+    {
+      title: 'Mã HV',
+      dataIndex: 'studentCode',
+      width: 110,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
+        left.studentCode.localeCompare(right.studentCode, 'vi', { numeric: true })
+    },
     {
       title: 'Học viên',
       dataIndex: 'studentName',
       width: 200,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => compareStudentName(left.studentName, right.studentName),
       render: (v: string, row: EnrollmentDetail) => (
         <a onClick={() => navigate(`/students/${row.studentId}`)}>{v}</a>
       )
@@ -135,6 +161,7 @@ export default function ClassDetailPage() {
       title: 'Ngày ghi danh',
       dataIndex: 'enrollDate',
       width: 130,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => left.enrollDate.localeCompare(right.enrollDate),
       render: (v: string) => formatDate(v)
     },
     {
@@ -142,6 +169,8 @@ export default function ClassDetailPage() {
       key: 'payable',
       width: 140,
       align: 'right' as const,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
+        left.agreedFee - left.discount - (right.agreedFee - right.discount),
       render: (_: unknown, row: EnrollmentDetail) => formatCurrency(row.agreedFee - row.discount)
     },
     {
@@ -149,6 +178,7 @@ export default function ClassDetailPage() {
       dataIndex: 'paidAmount',
       width: 130,
       align: 'right' as const,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => left.paidAmount - right.paidAmount,
       render: (v: number) => <Typography.Text type="success">{formatCurrency(v)}</Typography.Text>
     },
     {
@@ -156,6 +186,7 @@ export default function ClassDetailPage() {
       dataIndex: 'remainingAmount',
       width: 130,
       align: 'right' as const,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => left.remainingAmount - right.remainingAmount,
       render: (v: number) =>
         v > 0 ? (
           <Typography.Text type="danger" strong>
@@ -229,6 +260,24 @@ export default function ClassDetailPage() {
       width: 140,
       render: (v: keyof typeof SessionStatusLabel) => (
         <Tag color={v === 'done' ? 'green' : v === 'cancelled' ? 'red' : 'blue'}>{SessionStatusLabel[v]}</Tag>
+      )
+    },
+    {
+      title: '',
+      key: 'viewAttendance',
+      width: 130,
+      align: 'center' as const,
+      render: (_: unknown, row: ClassSessionDetail) => (
+        <Can permission={PERMISSIONS.ATTENDANCE_VIEW}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/attendance?classId=${classId}&sessionId=${row.id}`)}
+          >
+            Điểm danh
+          </Button>
+        </Can>
       )
     }
   ]
@@ -349,11 +398,19 @@ export default function ClassDetailPage() {
                   key: 'students',
                   label: `Học viên (${students.length})`,
                   children: (
+                    <>
+                      <SearchInput
+                        value={studentKeyword}
+                        onChange={setStudentKeyword}
+                        placeholder="Tìm mã học viên hoặc họ tên..."
+                        width={300}
+                      />
                     <Table<EnrollmentDetail>
+                      style={{ marginTop: 12 }}
                       rowKey="id"
                       size="middle"
                       columns={studentColumns}
-                      dataSource={students}
+                      dataSource={filteredStudents}
                       loading={studentsQuery.isLoading}
                       pagination={{ pageSize: 15, size: 'small' }}
                       scroll={{ x: 'max-content' }}
@@ -363,6 +420,7 @@ export default function ClassDetailPage() {
                         )
                       }}
                     />
+                    </>
                   )
                 },
                 {

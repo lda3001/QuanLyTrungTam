@@ -230,7 +230,7 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(s.code LIKE ? ESCAPE '\\' OR s.full_name LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\')`)
+      where.push(`(s.code LIKE ? ESCAPE '\\' OR search_text(s.full_name) LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\')`)
       params.push(kw, kw, kw)
     }
     if (query.studentId) {

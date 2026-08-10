@@ -8,7 +8,7 @@ import type { StudentInput, StudentQuery } from '@shared/types/dto'
 
 const SORTABLE: Record<string, string> = {
   code: 's.code',
-  fullName: 's.full_name',
+  fullName: 'last_name(s.full_name)',
   createdAt: 's.created_at',
   status: 's.status',
   birthDate: 's.birth_date',
@@ -44,7 +44,7 @@ export class StudentRepository extends BaseRepository<Student> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(s.code LIKE ? ESCAPE '\\' OR s.full_name LIKE ? ESCAPE '\\'
+      where.push(`(s.code LIKE ? ESCAPE '\\' OR search_text(s.full_name) LIKE ? ESCAPE '\\'
                    OR s.phone LIKE ? ESCAPE '\\' OR s.email LIKE ? ESCAPE '\\'
                    OR s.school_class LIKE ? ESCAPE '\\')`)
       params.push(kw, kw, kw, kw, kw)
@@ -79,7 +79,9 @@ export class StudentRepository extends BaseRepository<Student> {
     }
 
     const whereSql = where.join(' AND ')
-    const orderBy = safeSort(query.sortBy, query.sortOrder, SORTABLE, 's.created_at')
+    const orderBy = query.sortBy
+      ? safeSort(query.sortBy, query.sortOrder, SORTABLE, 's.created_at')
+      : 'last_name(s.full_name) ASC, s.full_name ASC'
 
     const total = (
       this.sqlite.prepare(`SELECT COUNT(*) AS c FROM students s WHERE ${whereSql}`).get(...(params as never[])) as {
@@ -198,7 +200,7 @@ export class StudentRepository extends BaseRepository<Student> {
       ? (this.sqlite
           .prepare(
             `SELECT id, code, full_name AS fullName FROM students
-             WHERE deleted_at IS NULL AND (code LIKE ? ESCAPE '\\' OR full_name LIKE ? ESCAPE '\\')
+             WHERE deleted_at IS NULL AND (code LIKE ? ESCAPE '\\' OR search_text(full_name) LIKE ? ESCAPE '\\')
              ORDER BY full_name LIMIT 50`
           )
           .all(kw, kw) as { id: number; code: string; fullName: string }[])

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Alert, Col, Form, Modal, Row, Spin, Typography } from 'antd'
-import { useForm, useWatch } from 'react-hook-form'
+import { Alert, Col, Form, Input, Modal, Row, Spin, Typography } from 'antd'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -17,6 +17,7 @@ import { studentService } from '@/services/academic.service'
 import { paymentSchema, type PaymentForm } from '@/utils/schemas'
 import { dayjs, formatCurrency, ISO_DATE } from '@/utils/format'
 import { PaymentMethod, PaymentMethodLabel, PaymentStatus, PaymentStatusLabel } from '@shared/constants/enums'
+import type { SelectOption } from '@shared/types/common'
 
 interface Props {
   open: boolean
@@ -36,6 +37,73 @@ const EMPTY: PaymentForm = {
   status: PaymentStatus.PAID,
   paidDate: dayjs().format(ISO_DATE),
   note: ''
+}
+
+function StudentSearchPicker({
+  value,
+  keyword,
+  options,
+  loading,
+  onKeywordChange,
+  onSelect
+}: {
+  value: number
+  keyword: string
+  options: SelectOption[]
+  loading: boolean
+  onKeywordChange: (value: string) => void
+  onSelect: (value: number) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const sortedOptions = [...options].sort((left, right) => {
+    const studentName = (label: string) => label.split('—').at(-1)?.trim() ?? label
+    const lastWord = (label: string) => studentName(label).split(/\s+/).at(-1) ?? ''
+    return (
+      lastWord(left.label).localeCompare(lastWord(right.label), 'vi', { sensitivity: 'base' }) ||
+      studentName(left.label).localeCompare(studentName(right.label), 'vi', { sensitivity: 'base' })
+    )
+  })
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <Input
+        allowClear
+        value={keyword}
+        placeholder="Gõ mã hoặc tên học viên để tìm..."
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          onKeywordChange(event.target.value)
+          setOpen(true)
+        }}
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+      />
+      {open && (keyword || loading) && (
+        <div className="student-search-results">
+          {loading ? (
+            <div className="student-search-empty">Đang tìm học viên...</div>
+          ) : sortedOptions.length === 0 ? (
+            <div className="student-search-empty">Không tìm thấy học viên</div>
+          ) : (
+            sortedOptions.map((option) => (
+              <button
+                type="button"
+                key={option.value}
+                className={value === option.value ? 'is-selected' : undefined}
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  onSelect(Number(option.value))
+                  onKeywordChange(option.label)
+                  setOpen(false)
+                }}
+              >
+                {option.label}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -128,6 +196,7 @@ export function PaymentFormModal({ open, paymentId, presetStudentId, presetEnrol
       void queryClient.invalidateQueries({ queryKey: ['payments'] })
       void queryClient.invalidateQueries({ queryKey: ['debts'] })
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      if (paymentId !== null) void queryClient.invalidateQueries({ queryKey: ['payment', paymentId] })
       onClose()
     },
     onError: (err) => notify.error(err)
@@ -149,15 +218,29 @@ export function PaymentFormModal({ open, paymentId, presetStudentId, presetEnrol
         <Form layout="vertical">
           <Row gutter={16}>
             <Col span={24}>
-              <FormSelect
+              <Controller
                 control={control}
                 name="studentId"
-                label="Học viên"
-                placeholder="Gõ mã hoặc tên để tìm..."
-                required
-                options={studentOptions}
-                loading={loadingStudents}
-                onSearch={setStudentKeyword}
+                render={({ field, fieldState }) => (
+                  <Form.Item
+                    label="Học viên"
+                    required
+                    validateStatus={fieldState.error ? 'error' : undefined}
+                    help={fieldState.error?.message}
+                  >
+                    <StudentSearchPicker
+                      value={field.value ?? 0}
+                      keyword={studentKeyword}
+                      options={studentOptions}
+                      loading={loadingStudents}
+                      onKeywordChange={setStudentKeyword}
+                      onSelect={(nextStudentId) => {
+                        field.onChange(nextStudentId)
+                        setValue('enrollmentId', null)
+                      }}
+                    />
+                  </Form.Item>
+                )}
               />
             </Col>
 

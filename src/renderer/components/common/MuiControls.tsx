@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Divider, MenuItem, MenuList, Paper } from '@mui/material'
 import { dayjs } from '@/utils/format'
 
@@ -197,6 +198,7 @@ export function MuiDropdown({ children, menu, trigger = ['click'], placement = '
   const [position, setPosition] = useState<CSSProperties>({})
   const dropdownRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLSpanElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const dropdownId = useId()
   const contextMenu = trigger.includes('contextMenu')
 
@@ -211,7 +213,13 @@ export function MuiDropdown({ children, menu, trigger = ['click'], placement = '
   useEffect(() => {
     if (!open) return
     const closeOnOutsideClick = (event: PointerEvent) => {
-      if (event.target instanceof Node && !dropdownRef.current?.contains(event.target)) setOpen(false)
+      if (
+        event.target instanceof Node &&
+        !dropdownRef.current?.contains(event.target) &&
+        !menuRef.current?.contains(event.target)
+      ) {
+        setOpen(false)
+      }
     }
     // Bắt ở pha capture để vẫn đóng được khi phần tử bên ngoài gọi stopPropagation().
     document.addEventListener('pointerdown', closeOnOutsideClick, true)
@@ -251,8 +259,8 @@ export function MuiDropdown({ children, menu, trigger = ['click'], placement = '
         if (open) setOpen(false)
         else openFromTrigger()
       }}>{children}</span>
-      {open && (
-        <Paper className="mui-dropdown-menu" style={position} elevation={4}>
+      {open && typeof document !== 'undefined' && createPortal(
+        <Paper ref={menuRef} className="mui-dropdown-menu" style={position} elevation={4}>
           <MenuList dense>
             {menu.items?.map((item, index) => item.type === 'divider' ? <Divider key={`divider-${index}`} /> : (
               <MenuItem key={item.key ?? index} disabled={item.disabled} sx={item.danger ? { color: 'error.main' } : undefined} onClick={(event) => {
@@ -264,7 +272,8 @@ export function MuiDropdown({ children, menu, trigger = ['click'], placement = '
               </MenuItem>
             ))}
           </MenuList>
-        </Paper>
+        </Paper>,
+        document.body
       )}
     </div>
   )

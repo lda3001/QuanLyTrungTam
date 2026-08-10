@@ -120,6 +120,7 @@ function TeacherFormDrawer({
       notify.success(isEdit ? 'Đã cập nhật giáo viên.' : 'Đã thêm giáo viên mới.')
       void queryClient.invalidateQueries({ queryKey: ['teachers'] })
       void queryClient.invalidateQueries({ queryKey: ['teacher-options'] })
+      if (teacherId !== null) void queryClient.invalidateQueries({ queryKey: ['teacher', teacherId] })
       onClose()
     },
     onError: (err) => notify.error(err)

@@ -43,7 +43,7 @@ export class PaymentRepository extends BaseRepository<Payment> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(p.code LIKE ? ESCAPE '\\' OR s.code LIKE ? ESCAPE '\\' OR s.full_name LIKE ? ESCAPE '\\')`)
+      where.push(`(p.code LIKE ? ESCAPE '\\' OR s.code LIKE ? ESCAPE '\\' OR search_text(s.full_name) LIKE ? ESCAPE '\\')`)
       params.push(kw, kw, kw)
     }
     if (query.status) {
@@ -209,7 +209,7 @@ export class PaymentRepository extends BaseRepository<Payment> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(s.code LIKE ? ESCAPE '\\' OR s.full_name LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\')`)
+      where.push(`(s.code LIKE ? ESCAPE '\\' OR search_text(s.full_name) LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\')`)
       params.push(kw, kw, kw)
     }
     if (query.classId) {

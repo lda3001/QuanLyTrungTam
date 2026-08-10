@@ -105,6 +105,7 @@ function UserFormDrawer({ open, userId, onClose }: { open: boolean; userId: numb
     onSuccess: () => {
       notify.success(isEdit ? 'Đã cập nhật tài khoản.' : 'Đã tạo tài khoản mới.')
       void queryClient.invalidateQueries({ queryKey: ['users'] })
+      if (userId !== null) void queryClient.invalidateQueries({ queryKey: ['user', userId] })
       onClose()
     },
     onError: (err) => notify.error(err)

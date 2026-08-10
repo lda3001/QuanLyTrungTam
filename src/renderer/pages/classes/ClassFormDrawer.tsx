@@ -120,6 +120,7 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
       notify.success(isEdit ? 'Đã cập nhật lớp học.' : 'Đã tạo lớp học mới.')
       void queryClient.invalidateQueries({ queryKey: ['classes'] })
       void queryClient.invalidateQueries({ queryKey: ['class-options'] })
+      if (classId !== null) void queryClient.invalidateQueries({ queryKey: ['class', classId] })
       onClose()
     },
     onError: (err) => notify.error(err)

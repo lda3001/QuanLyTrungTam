@@ -105,6 +105,7 @@ export function StudentFormDrawer({ open, studentId, onClose }: Props) {
       // Làm mới danh sách và cả ô chọn học viên ở màn hình khác
       void queryClient.invalidateQueries({ queryKey: ['students'] })
       void queryClient.invalidateQueries({ queryKey: ['student-options'] })
+      if (studentId !== null) void queryClient.invalidateQueries({ queryKey: ['student', studentId] })
       onClose()
     },
     onError: (err) => notify.error(err)

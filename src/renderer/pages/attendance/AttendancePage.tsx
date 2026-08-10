@@ -1,5 +1,6 @@
 import { MuiDatePickerApi as DatePicker, MuiSelect as Select } from '@/components/common/MuiControls'
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Alert, Button, Card, Col, Empty, Flex, Input, Radio, Row, Segmented, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { CheckSquareOutlined, DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons'
@@ -40,9 +41,10 @@ export default function AttendancePage() {
   const notify = useNotify()
   const queryClient = useQueryClient()
   const { exportExcel, exporting } = useExport()
+  const [searchParams] = useSearchParams()
 
-  const [classId, setClassId] = useState<number | undefined>()
-  const [sessionId, setSessionId] = useState<number | undefined>()
+  const [classId, setClassId] = useState<number | undefined>(() => readPositiveId(searchParams.get('classId')))
+  const [sessionId, setSessionId] = useState<number | undefined>(() => readPositiveId(searchParams.get('sessionId')))
   const [marks, setMarks] = useState<Record<number, AttendanceStatus>>({})
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [dirty, setDirty] = useState(false)
@@ -467,6 +469,11 @@ export default function AttendancePage() {
 }
 
 /* ----------------------- Tab lịch sử ----------------------- */
+
+function readPositiveId(value: string | null): number | undefined {
+  const id = Number(value)
+  return Number.isInteger(id) && id > 0 ? id : undefined
+}
 
 function AttendanceHistoryTab() {
   const { exportExcel, exporting } = useExport()

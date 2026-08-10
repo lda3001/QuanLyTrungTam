@@ -8,7 +8,7 @@ import type { TeacherInput, TeacherQuery } from '@shared/types/dto'
 
 const SORTABLE: Record<string, string> = {
   code: 'code',
-  fullName: 'full_name',
+  fullName: 'last_name(full_name)',
   salary: 'salary',
   hireDate: 'hire_date',
   createdAt: 'created_at'
@@ -28,7 +28,7 @@ export class TeacherRepository extends BaseRepository<Teacher> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(code LIKE ? ESCAPE '\\' OR full_name LIKE ? ESCAPE '\\'
+      where.push(`(code LIKE ? ESCAPE '\\' OR search_text(full_name) LIKE ? ESCAPE '\\'
                    OR phone LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\'
                    OR specialization LIKE ? ESCAPE '\\')`)
       params.push(kw, kw, kw, kw, kw)
@@ -43,7 +43,9 @@ export class TeacherRepository extends BaseRepository<Teacher> {
     }
 
     const whereSql = where.join(' AND ')
-    const orderBy = safeSort(query.sortBy, query.sortOrder, SORTABLE, 'created_at')
+    const orderBy = query.sortBy
+      ? safeSort(query.sortBy, query.sortOrder, SORTABLE, 'created_at')
+      : 'last_name(full_name) ASC, full_name ASC'
 
     const total = (
       this.sqlite.prepare(`SELECT COUNT(*) AS c FROM teachers WHERE ${whereSql}`).get(...(params as never[])) as {

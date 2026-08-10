@@ -99,6 +99,7 @@ export function SessionFormModal({ open, sessionId, defaultDate, onClose }: Prop
       notify.success(isEdit ? 'Đã cập nhật buổi học.' : 'Đã thêm buổi học.')
       void queryClient.invalidateQueries({ queryKey: ['sessions'] })
       void queryClient.invalidateQueries({ queryKey: ['class-sessions'] })
+      if (sessionId !== null) void queryClient.invalidateQueries({ queryKey: ['session', sessionId] })
       onClose()
     },
     onError: (err) => notify.error(err)

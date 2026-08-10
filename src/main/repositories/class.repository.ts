@@ -278,7 +278,7 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
            GROUP BY enrollment_id
          ) pay ON pay.enrollment_id = e.id
          WHERE e.class_id = ? AND e.deleted_at IS NULL
-         ORDER BY s.full_name`
+         ORDER BY last_name(s.full_name), s.full_name`
       )
       .all(classId) as EnrollmentDetail[]
   }
@@ -289,7 +289,7 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
     const params: unknown[] = [classId]
     let filter = ''
     if (kw) {
-      filter = `AND (s.code LIKE ? ESCAPE '\\' OR s.full_name LIKE ? ESCAPE '\\' OR s.phone LIKE ? ESCAPE '\\')`
+      filter = `AND (s.code LIKE ? ESCAPE '\\' OR search_text(s.full_name) LIKE ? ESCAPE '\\' OR s.phone LIKE ? ESCAPE '\\')`
       params.push(kw, kw, kw)
     }
 
@@ -306,7 +306,7 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
              WHERE e.student_id = s.id AND e.class_id = ? AND e.deleted_at IS NULL
            )
            ${filter}
-         ORDER BY s.full_name
+         ORDER BY last_name(s.full_name), s.full_name
          LIMIT 100`
       )
       .all(...(params as never[])) as Student[]

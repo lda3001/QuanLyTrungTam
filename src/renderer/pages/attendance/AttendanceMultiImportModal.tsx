@@ -54,12 +54,46 @@ function parseSymbol(raw: unknown): AttendanceStatus | null {
   return SYMBOL_MAP[key] ?? null
 }
 
-function matchSession(header: string, sessions: AttendanceGridSession[]): AttendanceGridSession | null {
-  const parsed = dayjs(header.trim(), 'DD/MM', true)
-  if (!parsed.isValid()) return null
+interface SessionHeaderDate {
+  day: number
+  month: number
+  year?: number
+}
+
+function normalizeHeader(value: unknown): string {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase('vi-VN')
+}
+
+/** Nhận cả file cũ DD/MM lẫn file được người dùng định dạng thành ngày Excel. */
+function parseSessionHeader(value: unknown): SessionHeaderDate | null {
+  if (value instanceof Date) {
+    return { day: value.getDate(), month: value.getMonth() + 1, year: value.getFullYear() }
+  }
+
+  const text = String(value ?? '').trim()
+  const fullDate = dayjs(text, ['DD/MM/YYYY', 'YYYY-MM-DD'], true)
+  if (fullDate.isValid()) {
+    return { day: fullDate.date(), month: fullDate.month() + 1, year: fullDate.year() }
+  }
+
+  const shortDate = dayjs(text, 'DD/MM', true)
+  return shortDate.isValid() ? { day: shortDate.date(), month: shortDate.month() + 1 } : null
+}
+
+function matchSession(header: unknown, sessions: AttendanceGridSession[]): AttendanceGridSession | null {
+  const parsed = parseSessionHeader(header)
+  if (!parsed) return null
   const candidates = sessions.filter((s) => {
     const d = dayjs(s.sessionDate, ISO_DATE)
-    return d.date() === parsed.date() && d.month() === parsed.month()
+    return (
+      d.date() === parsed.day &&
+      d.month() + 1 === parsed.month &&
+      (parsed.year === undefined || d.year() === parsed.year)
+    )
   })
   if (candidates.length === 0) return null
   if (candidates.length === 1) return candidates[0]
@@ -99,22 +133,31 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
       if (!data) return
       const { matrix } = data
 
-      let headerRowIdx = 2
-      const tryHeader = (idx: number): string[] =>
-        (matrix[idx] ?? []).map((c) => String(c ?? '').trim())
-      let headers = tryHeader(headerRowIdx)
-      if (!headers.some((h) => dayjs(h, 'DD/MM', true).isValid())) {
-        headerRowIdx = 0
-        headers = tryHeader(0)
+      // ExcelJS bỏ qua hàng trống khi duyệt worksheet. Không thể giả định hàng
+      // tiêu đề luôn ở index 2 (file xuất có một hàng trống ngay sau tiêu đề).
+      const headerRowIdx = matrix.findIndex((row) => {
+        const cells = row ?? []
+        return (
+          cells.some((cell) => normalizeHeader(cell) === 'ma hv') &&
+          cells.some((cell) => parseSessionHeader(cell) !== null)
+        )
+      })
+      if (headerRowIdx < 0) {
+        notify.warning('Không tìm thấy hàng tiêu đề có “Mã HV” và các cột ngày trong file Excel.')
+        return
       }
+
+      const headers = matrix[headerRowIdx] ?? []
+      const codeColIdx = headers.findIndex((cell) => normalizeHeader(cell) === 'ma hv')
+      const nameColIdx = headers.findIndex((cell) => normalizeHeader(cell) === 'ho va ten')
 
       const sessionCols: { colIdx: number; session: AttendanceGridSession }[] = []
       const missedCols: string[] = []
-      for (let i = 5; i < headers.length; i++) {
+      for (let i = 0; i < headers.length; i++) {
         const h = headers[i]
         const sess = matchSession(h, sessions)
         if (sess) sessionCols.push({ colIdx: i, session: sess })
-        else if (dayjs(h, 'DD/MM', true).isValid()) missedCols.push(h)
+        else if (parseSessionHeader(h)) missedCols.push(String(h).trim())
       }
 
       if (sessionCols.length === 0) {
@@ -128,8 +171,8 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
 
       for (let r = headerRowIdx + 1; r < matrix.length; r++) {
         const row = matrix[r]
-        const code = String(row?.[1] ?? '').trim()
-        const name = String(row?.[2] ?? '').trim()
+        const code = String(row?.[codeColIdx] ?? '').trim()
+        const name = String(row?.[nameColIdx] ?? '').trim()
         if (!code && !name) continue
 
         const student =

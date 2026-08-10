@@ -9,7 +9,7 @@ import type { Permission } from '@shared/constants/permissions'
 
 const SORTABLE: Record<string, string> = {
   username: 'u.username',
-  fullName: 'u.full_name',
+  fullName: 'last_name(u.full_name)',
   createdAt: 'u.created_at',
   lastLoginAt: 'u.last_login_at'
 }
@@ -44,7 +44,7 @@ export class UserRepository extends BaseRepository<User> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(u.username LIKE ? ESCAPE '\\' OR u.full_name LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\')`)
+      where.push(`(u.username LIKE ? ESCAPE '\\' OR search_text(u.full_name) LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\')`)
       params.push(kw, kw, kw)
     }
     if (query.roleId) {
@@ -57,7 +57,9 @@ export class UserRepository extends BaseRepository<User> {
     }
 
     const whereSql = where.join(' AND ')
-    const orderBy = safeSort(query.sortBy, query.sortOrder, SORTABLE, 'u.created_at')
+    const orderBy = query.sortBy
+      ? safeSort(query.sortBy, query.sortOrder, SORTABLE, 'u.created_at')
+      : 'last_name(u.full_name) ASC, u.full_name ASC'
 
     const total = (
       this.sqlite.prepare(`SELECT COUNT(*) AS c FROM users u WHERE ${whereSql}`).get(...(params as never[])) as {

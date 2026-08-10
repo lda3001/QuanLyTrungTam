@@ -217,19 +217,27 @@ export function FormSelect<T extends FieldValues>({
       name={name}
       render={({ field, fieldState }) => (
         <Field label={label} required={required} error={fieldState.error?.message}>
+          {onSearch && (
+            <Input
+              allowClear
+              placeholder={placeholder}
+              onChange={(event) => onSearch(event.target.value)}
+              style={{ marginBottom: 8 }}
+            />
+          )}
           <Select
             value={field.value ?? undefined}
             onChange={(v) => field.onChange(v ?? null)}
             onBlur={field.onBlur}
-            placeholder={placeholder}
+            placeholder={onSearch ? 'Chọn từ kết quả tìm kiếm...' : placeholder}
             disabled={disabled}
             options={options}
             allowClear={allowClear}
             mode={mode}
             loading={loading}
-            onSearch={onSearch}
+            onSearch={undefined}
             // Tìm không phân biệt hoa thường; nếu có onSearch thì để server lọc
-            showSearch={!!onSearch || options.length > 8}
+            showSearch={!onSearch && options.length > 8}
             filterOption={
               onSearch
                 ? false

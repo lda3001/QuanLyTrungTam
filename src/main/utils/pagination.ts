@@ -32,7 +32,7 @@ export function toPageResult<T>(items: T[], total: number, p: NormalizedPage): P
 export function likeParam(keyword: string | undefined): string | null {
   const k = keyword?.trim()
   if (!k) return null
-  return `%${k.replace(/[%_\\]/g, (m) => `\\${m}`)}%`
+  return `%${k.normalize('NFC').toLocaleLowerCase('vi-VN').replace(/[%_\\]/g, (m) => `\\${m}`)}%`
 }
 
 /**

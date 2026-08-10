@@ -56,6 +56,18 @@ export function initDatabase(): DB {
   sqlite.pragma('foreign_keys = ON')
   sqlite.pragma('synchronous = NORMAL')
   sqlite.pragma('busy_timeout = 5000')
+  // SQLite không có hàm lấy từ cuối của tên. Đăng ký một hàm xác định để các
+  // bảng người dùng có thể sắp xếp theo tên gọi thay vì theo họ.
+  sqlite.function('last_name', { deterministic: true }, (fullName: string | null) => {
+    if (!fullName) return ''
+    const parts = fullName.trim().split(/\s+/)
+    return parts[parts.length - 1] ?? ''
+  })
+  // SQLite's built-in LOWER/LIKE only handles ASCII reliably. This function
+  // keeps Vietnamese names case-insensitive as well.
+  sqlite.function('search_text', { deterministic: true }, (value: string | null) =>
+    value ? value.normalize('NFC').toLocaleLowerCase('vi-VN') : ''
+  )
 
   runMigrations(sqlite)
 
