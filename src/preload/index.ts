@@ -100,7 +100,9 @@ const api: AppApi = {
     remove: (id) => invoke(IPC.PAYMENT_DELETE, id),
     debts: (query) => invoke(IPC.PAYMENT_DEBTS, query),
     receipt: (id) => invoke(IPC.PAYMENT_RECEIPT, id),
-    studentEnrollments: (id) => invoke(IPC.PAYMENT_STUDENT_ENROLLMENTS, id)
+    studentEnrollments: (id) => invoke(IPC.PAYMENT_STUDENT_ENROLLMENTS, id),
+    adjustTuition: (id, input) => invoke(IPC.PAYMENT_TUITION_ADJUST, id, input),
+    tuitionHistory: (id) => invoke(IPC.PAYMENT_TUITION_HISTORY, id)
   },
 
   users: {

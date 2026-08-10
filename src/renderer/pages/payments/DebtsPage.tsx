@@ -1,13 +1,26 @@
 import { MuiSelect as Select } from '@/components/common/MuiControls'
 import { useMemo, useState } from 'react'
-import { Button, Card, Col, Flex, Progress, Row, Space, Statistic, Switch, Tag, Typography } from 'antd'
+import {
+  Button,
+  Card,
+  Col,
+  Flex,
+  Progress,
+  Row,
+  Space,
+  Statistic,
+  Switch,
+  Tag,
+  Typography
+} from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { AuditOutlined, DollarOutlined, FileExcelOutlined } from '@ant-design/icons'
+import { AuditOutlined, DollarOutlined, EditOutlined, FileExcelOutlined } from '@ant-design/icons'
 import { useQuery } from '@tanstack/react-query'
 import { PageHeader } from '@/components/common/PageHeader'
 import { DataTable } from '@/components/common/DataTable'
 import { Can, PersonCell, SearchInput } from '@/components/common'
 import { PaymentFormModal } from './PaymentFormModal'
+import { TuitionAdjustmentModal } from './TuitionAdjustmentModal'
 import { useTableQuery } from '@/hooks/useTableQuery'
 import { useExport } from '@/hooks/useExport'
 import { paymentService } from '@/services/admin.service'
@@ -31,10 +44,12 @@ export default function DebtsPage() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [preset, setPreset] = useState<{ studentId: number; enrollmentId: number } | null>(null)
+  const [tuitionRow, setTuitionRow] = useState<DebtRow | null>(null)
 
   const table = useTableQuery<{ classId?: number; courseId?: number; onlyDebt?: boolean }>({
     defaultPageSize: 20,
-    defaultFilters: { onlyDebt: true }
+    defaultFilters: { onlyDebt: true },
+    defaultSort: { sortBy: 'studentName', sortOrder: 'asc' }
   })
 
   const { data, isLoading, isFetching } = useQuery({
@@ -103,7 +118,14 @@ export default function DebtsPage() {
       dataIndex: 'studentName',
       width: 240,
       fixed: 'left',
-      render: (v: string, row) => <PersonCell name={v} sub={`${row.studentCode}${row.studentPhone ? ` · ${row.studentPhone}` : ''}`} />
+      sorter: true,
+      defaultSortOrder: 'ascend',
+      render: (v: string, row) => (
+        <PersonCell
+          name={v}
+          sub={`${row.studentCode}${row.studentPhone ? ` · ${row.studentPhone}` : ''}`}
+        />
+      )
     },
     {
       title: 'Lớp học',
@@ -123,20 +145,32 @@ export default function DebtsPage() {
       dataIndex: 'payable',
       width: 150,
       align: 'right',
-      render: (v: number) => formatCurrency(v)
+      sorter: true,
+      render: (v: number, row) => (
+        <div>
+          <div>{formatCurrency(v)}</div>
+          {row.payableOverride != null && (
+            <Typography.Text type="warning" style={{ fontSize: 11 }}>
+              Nhập trực tiếp
+            </Typography.Text>
+          )}
+        </div>
+      )
     },
     {
       title: 'Đã đóng',
       dataIndex: 'paid',
       width: 150,
       align: 'right',
+      sorter: true,
       render: (v: number) => <Typography.Text type="success">{formatCurrency(v)}</Typography.Text>
     },
     {
-      title: 'Còn nợ',
+      title: 'Cần đóng',
       dataIndex: 'remaining',
       width: 150,
       align: 'right',
+      sorter: true,
       render: (v: number) =>
         v > 0 ? (
           <Typography.Text type="danger" strong style={{ fontSize: 14 }}>
@@ -176,25 +210,33 @@ export default function DebtsPage() {
     {
       title: '',
       key: 'actions',
-      width: 120,
+      width: 210,
       fixed: 'right',
       align: 'center',
-      render: (_, row) =>
-        row.remaining > 0 ? (
-          <Can permission={PERMISSIONS.PAYMENT_CREATE}>
-            <Button
-              type="primary"
-              size="small"
-              icon={<DollarOutlined />}
-              onClick={() => {
-                setPreset({ studentId: row.studentId, enrollmentId: row.enrollmentId })
-                setModalOpen(true)
-              }}
-            >
-              Thu tiền
+      render: (_, row) => (
+        <Space size={6}>
+          {row.remaining > 0 && (
+            <Can permission={PERMISSIONS.PAYMENT_CREATE}>
+              <Button
+                type="primary"
+                size="small"
+                icon={<DollarOutlined />}
+                onClick={() => {
+                  setPreset({ studentId: row.studentId, enrollmentId: row.enrollmentId })
+                  setModalOpen(true)
+                }}
+              >
+                Thu tiền
+              </Button>
+            </Can>
+          )}
+          <Can permission={PERMISSIONS.PAYMENT_TUITION_UPDATE}>
+            <Button size="small" icon={<EditOutlined />} onClick={() => setTuitionRow(row)}>
+              Sửa học phí
             </Button>
           </Can>
-        ) : null
+        </Space>
+      )
     }
   ]
 
@@ -271,7 +313,9 @@ export default function DebtsPage() {
               options={classOptions}
               showSearch
               filterOption={(input, option) =>
-                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                String(option?.label ?? '')
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
             />
             <Select
@@ -302,6 +346,11 @@ export default function DebtsPage() {
           setModalOpen(false)
           setPreset(null)
         }}
+      />
+      <TuitionAdjustmentModal
+        open={!!tuitionRow}
+        row={tuitionRow}
+        onClose={() => setTuitionRow(null)}
       />
     </>
   )

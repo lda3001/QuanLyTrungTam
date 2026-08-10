@@ -6,6 +6,7 @@ import type {
   AppSetting,
   EnrollmentDetail,
   PaymentDetail,
+  TuitionAdjustment,
   Role,
   RoleWithPermissions,
   UserDetail
@@ -28,6 +29,7 @@ import type {
   StudentReportRow,
   TeacherReportRow,
   TuitionReportRow,
+  TuitionAdjustmentInput,
   UserInput,
   UserQuery
 } from '@shared/types/dto'
@@ -36,11 +38,17 @@ export const paymentService = {
   list: (q: PaymentQuery): Promise<PageResult<PaymentDetail>> => call(api().payments.list(q)),
   get: (id: number): Promise<PaymentDetail> => call(api().payments.get(id)),
   create: (i: PaymentInput): Promise<PaymentDetail> => call(api().payments.create(i)),
-  update: (id: number, i: PaymentInput): Promise<PaymentDetail> => call(api().payments.update(id, i)),
+  update: (id: number, i: PaymentInput): Promise<PaymentDetail> =>
+    call(api().payments.update(id, i)),
   remove: (id: number): Promise<boolean> => call(api().payments.remove(id)),
   debts: (q: DebtQuery): Promise<PageResult<DebtRow>> => call(api().payments.debts(q)),
   receipt: (id: number): Promise<ReceiptData> => call(api().payments.receipt(id)),
-  studentEnrollments: (id: number): Promise<EnrollmentDetail[]> => call(api().payments.studentEnrollments(id))
+  studentEnrollments: (id: number): Promise<EnrollmentDetail[]> =>
+    call(api().payments.studentEnrollments(id)),
+  adjustTuition: (id: number, input: TuitionAdjustmentInput): Promise<boolean> =>
+    call(api().payments.adjustTuition(id, input)),
+  tuitionHistory: (id: number): Promise<TuitionAdjustment[]> =>
+    call(api().payments.tuitionHistory(id))
 }
 
 export const userService = {
@@ -49,7 +57,8 @@ export const userService = {
   create: (i: UserInput): Promise<UserDetail> => call(api().users.create(i)),
   update: (id: number, i: UserInput): Promise<UserDetail> => call(api().users.update(id, i)),
   remove: (id: number): Promise<boolean> => call(api().users.remove(id)),
-  resetPassword: (i: AdminResetPasswordInput): Promise<boolean> => call(api().users.resetPassword(i))
+  resetPassword: (i: AdminResetPasswordInput): Promise<boolean> =>
+    call(api().users.resetPassword(i))
 }
 
 export const roleService = {

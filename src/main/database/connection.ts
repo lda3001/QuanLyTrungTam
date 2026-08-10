@@ -61,7 +61,14 @@ export function initDatabase(): DB {
   sqlite.function('last_name', { deterministic: true }, (fullName: string | null) => {
     if (!fullName) return ''
     const parts = fullName.trim().split(/\s+/)
-    return parts[parts.length - 1] ?? ''
+    const lastName = parts[parts.length - 1] ?? ''
+    // SQLite khong co collation tieng Viet. Tao khoa khong dau de Anh/Ánh,
+    // Duc/Đức... duoc xep cung nhom chu cai, sau do SQL dung ho ten lam khoa phu.
+    return lastName
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/[đĐ]/g, 'd')
+      .toLocaleLowerCase('vi-VN')
   })
   // SQLite's built-in LOWER/LIKE only handles ASCII reliably. This function
   // keeps Vietnamese names case-insensitive as well.

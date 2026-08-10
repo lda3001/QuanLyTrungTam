@@ -10,6 +10,7 @@ import type {
   Course,
   EnrollmentDetail,
   PaymentDetail,
+  TuitionAdjustment,
   Role,
   RoleWithPermissions,
   Student,
@@ -59,6 +60,7 @@ import type {
   TeacherQuery,
   TeacherReportRow,
   TuitionReportRow,
+  TuitionAdjustmentInput,
   UserInput,
   UserQuery
 } from '../types/dto'
@@ -156,6 +158,8 @@ export interface AppApi {
     debts(query: DebtQuery): R<PageResult<DebtRow>>
     receipt(paymentId: number): R<ReceiptData>
     studentEnrollments(studentId: number): R<EnrollmentDetail[]>
+    adjustTuition(enrollmentId: number, input: TuitionAdjustmentInput): R<boolean>
+    tuitionHistory(enrollmentId: number): R<TuitionAdjustment[]>
   }
 
   users: {

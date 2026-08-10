@@ -90,7 +90,7 @@ export default function StudentDetailPage() {
   const payments = paymentsQuery.data ?? []
   const attendance = attendanceQuery.data
 
-  const totalPayable = enrollments.reduce((sum, e) => sum + (e.agreedFee - e.discount), 0)
+  const totalPayable = enrollments.reduce((sum, e) => sum + e.payableAmount, 0)
   const totalPaid = enrollments.reduce((sum, e) => sum + e.paidAmount, 0)
   const totalRemaining = Math.max(0, totalPayable - totalPaid)
 
@@ -120,15 +120,17 @@ export default function StudentDetailPage() {
     },
     {
       title: 'Học phí',
-      dataIndex: 'agreedFee',
+      dataIndex: 'payableAmount',
       width: 140,
       align: 'right' as const,
       render: (value: number, row: EnrollmentDetail) => (
         <div>
-          <div>{formatCurrency(value - row.discount)}</div>
-          {row.discount > 0 && (
+          <div>{formatCurrency(value)}</div>
+          {(row.discount > 0 || row.surcharge > 0 || row.payableOverride != null) && (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              giảm {formatCurrency(row.discount)}
+              {row.payableOverride != null
+                ? 'Nhập trực tiếp'
+                : `${row.discount > 0 ? `Giảm ${formatCurrency(row.discount)}` : ''}${row.discount > 0 && row.surcharge > 0 ? ' · ' : ''}${row.surcharge > 0 ? `Phụ thu ${formatCurrency(row.surcharge)}` : ''}`}
             </Typography.Text>
           )}
         </div>

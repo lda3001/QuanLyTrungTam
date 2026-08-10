@@ -262,16 +262,23 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
         `SELECT
            e.id, e.student_id AS studentId, e.class_id AS classId,
            e.enroll_date AS enrollDate, e.status, e.agreed_fee AS agreedFee,
-           e.discount, e.note,
+           e.fee_type AS feeType, e.custom_fee AS customFee,
+           e.discount, e.surcharge, e.payable_override AS payableOverride, e.note,
            e.created_at AS createdAt, e.updated_at AS updatedAt, e.deleted_at AS deletedAt,
            s.code AS studentCode, s.full_name AS studentName, s.phone AS studentPhone,
            cl.name AS className, co.name AS courseName,
+           et.default_fee AS defaultFee, et.calculated_fee AS calculatedFee,
+           et.payable AS payableAmount,
+           et.eligible_session_count AS eligibleSessionCount,
+           et.total_session_count AS totalSessionCount,
+           et.billable_month_count AS billableMonthCount,
            COALESCE(pay.paid, 0) AS paidAmount,
-           (e.agreed_fee - e.discount - COALESCE(pay.paid, 0)) AS remainingAmount
+           (et.payable - COALESCE(pay.paid, 0)) AS remainingAmount
          FROM enrollments e
          JOIN students s ON s.id = e.student_id
          JOIN classes cl ON cl.id = e.class_id
          JOIN courses co ON co.id = cl.course_id
+         JOIN enrollment_tuition et ON et.enrollment_id = e.id
          LEFT JOIN (
            SELECT enrollment_id, SUM(amount) AS paid FROM payments
            WHERE deleted_at IS NULL AND status <> 'refunded'

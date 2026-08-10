@@ -328,6 +328,17 @@ export interface PaymentInput {
   note?: string | null
 }
 
+export type TuitionFeeType = 'default' | 'monthly' | 'per_session' | 'fixed'
+
+export interface TuitionAdjustmentInput {
+  feeType: TuitionFeeType
+  customFee?: number | null
+  discount: number
+  surcharge: number
+  payableOverride?: number | null
+  reason?: string | null
+}
+
 export interface DebtQuery extends PageQuery {
   classId?: number
   courseId?: number
@@ -345,7 +356,15 @@ export interface DebtRow {
   className: string
   courseName: string
   agreedFee: number
+  feeType: TuitionFeeType
+  customFee: number | null
   discount: number
+  surcharge: number
+  payableOverride: number | null
+  calculatedFee: number
+  eligibleSessionCount: number
+  totalSessionCount: number
+  billableMonthCount: number
   payable: number
   paid: number
   remaining: number

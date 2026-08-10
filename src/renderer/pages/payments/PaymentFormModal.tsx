@@ -267,7 +267,7 @@ export function PaymentFormModal({ open, paymentId, presetStudentId, presetEnrol
                   style={{ marginBottom: 16 }}
                   message={
                     <Typography.Text>
-                      Học phí: <strong>{formatCurrency(selected.agreedFee - selected.discount)}</strong>
+                      Học phí: <strong>{formatCurrency(selected.payableAmount)}</strong>
                       {' · '}Đã đóng: <strong>{formatCurrency(selected.paidAmount)}</strong>
                       {' · '}Còn nợ:{' '}
                       <strong style={{ color: selected.remainingAmount > 0 ? '#ff4d4f' : '#52c41a' }}>

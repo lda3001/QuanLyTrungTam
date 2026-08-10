@@ -73,16 +73,17 @@ export class AnalyticsRepository extends BaseRepository<{ id: number }> {
     // Công nợ toàn hệ thống: tổng phần còn thiếu của mọi lần ghi danh chưa rút
     const debt = one<{ amount: number; c: number }>(
       `SELECT
-         COALESCE(SUM(MAX(0, e.agreed_fee - e.discount - COALESCE(pay.paid,0))), 0) AS amount,
+         COALESCE(SUM(MAX(0, et.payable - COALESCE(pay.paid,0))), 0) AS amount,
          COUNT(*) AS c
        FROM enrollments e
+       JOIN enrollment_tuition et ON et.enrollment_id = e.id
        LEFT JOIN (
          SELECT enrollment_id, SUM(amount) AS paid FROM payments
          WHERE deleted_at IS NULL AND status <> 'refunded'
          GROUP BY enrollment_id
        ) pay ON pay.enrollment_id = e.id
        WHERE e.deleted_at IS NULL AND e.status <> 'withdrawn'
-         AND (e.agreed_fee - e.discount - COALESCE(pay.paid,0)) > 0`
+         AND (et.payable - COALESCE(pay.paid,0)) > 0`
     )
 
     const sessions = one<{ c: number }>(
@@ -143,11 +144,12 @@ export class AnalyticsRepository extends BaseRepository<{ id: number }> {
     const row = this.sqlite
       .prepare(
         `SELECT
-           SUM(CASE WHEN COALESCE(pay.paid,0) >= (e.agreed_fee - e.discount) THEN 1 ELSE 0 END) AS paid,
+           SUM(CASE WHEN COALESCE(pay.paid,0) >= et.payable THEN 1 ELSE 0 END) AS paid,
            SUM(CASE WHEN COALESCE(pay.paid,0) > 0
-                     AND COALESCE(pay.paid,0) < (e.agreed_fee - e.discount) THEN 1 ELSE 0 END) AS partial,
+                     AND COALESCE(pay.paid,0) < et.payable THEN 1 ELSE 0 END) AS partial,
            SUM(CASE WHEN COALESCE(pay.paid,0) <= 0 THEN 1 ELSE 0 END) AS unpaid
          FROM enrollments e
+         JOIN enrollment_tuition et ON et.enrollment_id = e.id
          LEFT JOIN (
            SELECT enrollment_id, SUM(amount) AS paid FROM payments
            WHERE deleted_at IS NULL AND status <> 'refunded'
@@ -234,12 +236,13 @@ export class AnalyticsRepository extends BaseRepository<{ id: number }> {
         `SELECT
            cl.id AS classId, cl.name AS className, co.name AS courseName,
            COUNT(e.id) AS students,
-           COALESCE(SUM(e.agreed_fee - e.discount),0) AS payable,
+           COALESCE(SUM(et.payable),0) AS payable,
            COALESCE(SUM(pay.paid),0) AS paid
          FROM classes cl
          JOIN courses co ON co.id = cl.course_id
          LEFT JOIN enrollments e ON e.class_id = cl.id AND e.deleted_at IS NULL
            AND e.enroll_date BETWEEN ? AND ?
+         LEFT JOIN enrollment_tuition et ON et.enrollment_id = e.id
          LEFT JOIN (
            SELECT enrollment_id, SUM(amount) AS paid FROM payments
            WHERE deleted_at IS NULL AND status <> 'refunded'
@@ -248,7 +251,7 @@ export class AnalyticsRepository extends BaseRepository<{ id: number }> {
          WHERE cl.deleted_at IS NULL
          GROUP BY cl.id
          HAVING students > 0
-         ORDER BY (COALESCE(SUM(e.agreed_fee - e.discount),0) - COALESCE(SUM(pay.paid),0)) DESC`
+         ORDER BY (COALESCE(SUM(et.payable),0) - COALESCE(SUM(pay.paid),0)) DESC`
       )
       .all(range.from, range.to) as Omit<TuitionReportRow, 'remaining' | 'rate'>[]
 

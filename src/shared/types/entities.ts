@@ -126,7 +126,14 @@ export interface Enrollment extends BaseEntity {
   status: EnrollmentStatus
   /** Học phí chốt cho học viên này (có thể khác giá gốc do giảm giá) */
   agreedFee: number
+  /** Cach tinh hoc phi rieng; default = hoc phi mac dinh cua lop. */
+  feeType: 'default' | 'monthly' | 'per_session' | 'fixed'
+  /** Muc theo thang, don gia buoi hoac muc co dinh tuy feeType. */
+  customFee: number | null
   discount: number
+  surcharge: number
+  /** So phai thanh toan nhap truc tiep, uu tien cao nhat. */
+  payableOverride: number | null
   note: string | null
 }
 
@@ -136,8 +143,25 @@ export interface EnrollmentDetail extends Enrollment {
   studentPhone: string | null
   className: string
   courseName: string
+  defaultFee: number
+  calculatedFee: number
+  payableAmount: number
+  eligibleSessionCount: number
+  totalSessionCount: number
+  billableMonthCount: number
   paidAmount: number
   remainingAmount: number
+}
+
+export interface TuitionAdjustment extends BaseEntity {
+  enrollmentId: number
+  originalPayable: number
+  adjustedPayable: number
+  beforeSnapshot: string
+  afterSnapshot: string
+  reason: string | null
+  adjustedBy: number | null
+  adjustedByName: string | null
 }
 
 export interface Attendance extends BaseEntity {

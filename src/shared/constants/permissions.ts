@@ -43,6 +43,7 @@ export const PERMISSIONS = {
   PAYMENT_VIEW: 'payment:view',
   PAYMENT_CREATE: 'payment:create',
   PAYMENT_UPDATE: 'payment:update',
+  PAYMENT_TUITION_UPDATE: 'payment:tuition-update',
   PAYMENT_DELETE: 'payment:delete',
   PAYMENT_PRINT: 'payment:print',
 
@@ -134,6 +135,7 @@ export const PERMISSION_GROUPS: { key: string; label: string; permissions: Permi
       PERMISSIONS.PAYMENT_VIEW,
       PERMISSIONS.PAYMENT_CREATE,
       PERMISSIONS.PAYMENT_UPDATE,
+      PERMISSIONS.PAYMENT_TUITION_UPDATE,
       PERMISSIONS.PAYMENT_DELETE,
       PERMISSIONS.PAYMENT_PRINT
     ]
@@ -192,6 +194,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'payment:view': 'Xem học phí',
   'payment:create': 'Lập phiếu thu',
   'payment:update': 'Sửa phiếu thu',
+  'payment:tuition-update': 'Sửa học phí học viên',
   'payment:delete': 'Xoá phiếu thu',
   'payment:print': 'In / xuất PDF phiếu thu',
   'schedule:view': 'Xem lịch học',

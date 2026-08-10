@@ -9,7 +9,7 @@ import { users } from './auth'
  *
  * Một phiếu gắn với một lần ghi danh (enrollment) để biết học viên đóng tiền
  * cho lớp nào. Công nợ KHÔNG lưu thành cột riêng mà luôn tính bằng
- * `agreedFee - discount - SUM(payments.amount)` — tránh dữ liệu lệch nhau khi
+ * `enrollment_tuition.payable - SUM(payments.amount)` — tránh dữ liệu lệch nhau khi
  * sửa/xoá phiếu.
  */
 export const payments = sqliteTable(

@@ -1,4 +1,8 @@
-import { MuiDatePickerApi as DatePicker, MuiDropdown as Dropdown, MuiSelect as Select } from '@/components/common/MuiControls'
+import {
+  MuiDatePickerApi as DatePicker,
+  MuiDropdown as Dropdown,
+  MuiSelect as Select
+} from '@/components/common/MuiControls'
 import { useMemo, useState } from 'react'
 import { Button, Flex, Space, Statistic, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -158,6 +162,7 @@ export default function PaymentsPage() {
         title: 'Học viên',
         dataIndex: 'studentName',
         width: 230,
+        sorter: true,
         render: (v: string, row) => <PersonCell name={v} sub={row.studentCode} />
       },
       {
@@ -260,7 +265,11 @@ export default function PaymentsPage() {
     <>
       <PageHeader
         title="Phiếu thu học phí"
-        subtitle={data ? `${data.total} phiếu · Tổng trang này: ${formatCurrency(pageTotal)}` : 'Đang tải...'}
+        subtitle={
+          data
+            ? `${data.total} phiếu · Tổng trang này: ${formatCurrency(pageTotal)}`
+            : 'Đang tải...'
+        }
         breadcrumbs={[{ title: 'Học phí' }, { title: 'Phiếu thu' }]}
         icon={<DollarOutlined style={{ fontSize: 26, color: '#52c41a' }} />}
         extra={
@@ -323,7 +332,9 @@ export default function PaymentsPage() {
                 options={classOptions}
                 showSearch
                 filterOption={(input, option) =>
-                  String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  String(option?.label ?? '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
                 }
               />
               <Select
@@ -332,7 +343,10 @@ export default function PaymentsPage() {
                 style={{ width: 150 }}
                 value={table.filters.method}
                 onChange={(method) => table.setFilters({ method })}
-                options={Object.entries(PaymentMethodLabel).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(PaymentMethodLabel).map(([value, label]) => ({
+                  value,
+                  label
+                }))}
               />
             </Space>
 
@@ -346,7 +360,11 @@ export default function PaymentsPage() {
         }
       />
 
-      <PaymentFormModal open={modalOpen} paymentId={editingId} onClose={() => setModalOpen(false)} />
+      <PaymentFormModal
+        open={modalOpen}
+        paymentId={editingId}
+        onClose={() => setModalOpen(false)}
+      />
     </>
   )
 }

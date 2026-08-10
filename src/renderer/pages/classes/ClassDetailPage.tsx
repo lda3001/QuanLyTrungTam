@@ -128,7 +128,7 @@ export default function ClassDetailPage() {
   const sessions = sessionsQuery.data ?? []
   const remainingSlots = Math.max(0, classroom.maxStudents - students.length)
 
-  const totalPayable = students.reduce((s, e) => s + (e.agreedFee - e.discount), 0)
+  const totalPayable = students.reduce((s, e) => s + e.payableAmount, 0)
   const totalPaid = students.reduce((s, e) => s + e.paidAmount, 0)
 
   const compareStudentName = (left: string, right: string) => {
@@ -170,8 +170,8 @@ export default function ClassDetailPage() {
       width: 140,
       align: 'right' as const,
       sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
-        left.agreedFee - left.discount - (right.agreedFee - right.discount),
-      render: (_: unknown, row: EnrollmentDetail) => formatCurrency(row.agreedFee - row.discount)
+        left.payableAmount - right.payableAmount,
+      render: (_: unknown, row: EnrollmentDetail) => formatCurrency(row.payableAmount)
     },
     {
       title: 'Đã đóng',

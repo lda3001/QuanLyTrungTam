@@ -84,6 +84,8 @@ export const IPC = {
   PAYMENT_DEBTS: 'payment:debts',
   PAYMENT_RECEIPT: 'payment:receipt',
   PAYMENT_STUDENT_ENROLLMENTS: 'payment:student-enrollments',
+  PAYMENT_TUITION_ADJUST: 'payment:tuition-adjust',
+  PAYMENT_TUITION_HISTORY: 'payment:tuition-history',
 
   // User & Role
   USER_LIST: 'user:list',

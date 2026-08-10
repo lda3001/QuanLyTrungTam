@@ -5,8 +5,15 @@ import { sessionStore } from './session.store'
 import { audit } from './audit'
 import { AppError } from '../utils/errors'
 import type { PageResult } from '@shared/types/common'
-import type { EnrollmentDetail, PaymentDetail } from '@shared/types/entities'
-import type { DebtQuery, DebtRow, PaymentInput, PaymentQuery, ReceiptData } from '@shared/types/dto'
+import type { EnrollmentDetail, PaymentDetail, TuitionAdjustment } from '@shared/types/entities'
+import type {
+  DebtQuery,
+  DebtRow,
+  PaymentInput,
+  PaymentQuery,
+  ReceiptData,
+  TuitionAdjustmentInput
+} from '@shared/types/dto'
 
 export class PaymentService {
   list(query: PaymentQuery): PageResult<PaymentDetail> {
@@ -59,6 +66,22 @@ export class PaymentService {
     return studentRepository.enrollments(studentId)
   }
 
+  adjustTuition(enrollmentId: number, input: TuitionAdjustmentInput): boolean {
+    const result = paymentRepository.adjustTuition(enrollmentId, input, sessionStore.userId())
+    audit(
+      'update',
+      'tuition_adjustments',
+      enrollmentId,
+      `Điều chỉnh học phí ghi danh #${enrollmentId}`,
+      { reason: input.reason?.trim() || null }
+    )
+    return result
+  }
+
+  tuitionHistory(enrollmentId: number): TuitionAdjustment[] {
+    return paymentRepository.tuitionHistory(enrollmentId)
+  }
+
   /**
    * Gom đủ dữ liệu để in phiếu thu.
    * Số liệu công nợ được tính lại tại thời điểm in, không lấy từ bản ghi cũ.
@@ -77,7 +100,7 @@ export class PaymentService {
         .enrollments(payment.studentId)
         .find((e) => e.id === payment.enrollmentId)
       if (enrollment) {
-        payable = enrollment.agreedFee - enrollment.discount
+        payable = enrollment.payableAmount
         paid = enrollment.paidAmount
         remaining = Math.max(0, enrollment.remainingAmount)
       }
@@ -115,8 +138,10 @@ export class PaymentService {
   private validate(input: PaymentInput): void {
     if (!input.studentId) throw AppError.validation('Chưa chọn học viên.')
     if (!input.amount || input.amount <= 0) throw AppError.validation('Số tiền phải lớn hơn 0.')
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.paidDate)) throw AppError.validation('Ngày thu không hợp lệ.')
-    if (!studentRepository.exists(input.studentId)) throw AppError.validation('Học viên không tồn tại.')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.paidDate))
+      throw AppError.validation('Ngày thu không hợp lệ.')
+    if (!studentRepository.exists(input.studentId))
+      throw AppError.validation('Học viên không tồn tại.')
   }
 }
 

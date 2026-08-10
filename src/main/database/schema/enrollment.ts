@@ -22,8 +22,12 @@ export const enrollments = sqliteTable(
      * ghi danh — nếu sau này trung tâm tăng giá khoá học, công nợ cũ không đổi.
      */
     agreedFee: integer('agreed_fee').notNull().default(0),
+    feeType: text('fee_type').notNull().default('default'),
+    customFee: integer('custom_fee'),
     /** Số tiền giảm (VND), không phải phần trăm */
     discount: integer('discount').notNull().default(0),
+    surcharge: integer('surcharge').notNull().default(0),
+    payableOverride: integer('payable_override'),
     note: text('note'),
     ...timestamps
   },
@@ -65,5 +69,29 @@ export const attendance = sqliteTable(
   })
 )
 
+/** Lich su moi lan quan tri vien dieu chinh hoc phi cua mot luot ghi danh. */
+export const tuitionAdjustments = sqliteTable(
+  'tuition_adjustments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    enrollmentId: integer('enrollment_id')
+      .notNull()
+      .references(() => enrollments.id),
+    originalPayable: integer('original_payable').notNull(),
+    adjustedPayable: integer('adjusted_payable').notNull(),
+    beforeSnapshot: text('before_snapshot').notNull(),
+    afterSnapshot: text('after_snapshot').notNull(),
+    reason: text('reason'),
+    adjustedBy: integer('adjusted_by').references(() => users.id),
+    ...timestamps
+  },
+  (t) => ({
+    enrollmentIdx: index('tuition_adjustments_enrollment_idx').on(t.enrollmentId),
+    userIdx: index('tuition_adjustments_user_idx').on(t.adjustedBy),
+    createdIdx: index('tuition_adjustments_created_idx').on(t.createdAt)
+  })
+)
+
 export type EnrollmentRow = typeof enrollments.$inferSelect
 export type AttendanceRow = typeof attendance.$inferSelect
+export type TuitionAdjustmentRow = typeof tuitionAdjustments.$inferSelect

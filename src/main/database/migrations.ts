@@ -301,6 +301,74 @@ const MIGRATIONS: Migration[] = [
       `ALTER TABLE students ADD COLUMN school_class TEXT`,
       `CREATE INDEX IF NOT EXISTS students_school_class_idx ON students (school_class)`
     ]
+  },
+  {
+    version: 3,
+    name: 'student-tuition-adjustments',
+    statements: [
+      `ALTER TABLE enrollments ADD COLUMN fee_type TEXT NOT NULL DEFAULT 'default'`,
+      `ALTER TABLE enrollments ADD COLUMN custom_fee INTEGER`,
+      `ALTER TABLE enrollments ADD COLUMN surcharge INTEGER NOT NULL DEFAULT 0`,
+      `ALTER TABLE enrollments ADD COLUMN payable_override INTEGER`,
+      `CREATE TABLE IF NOT EXISTS tuition_adjustments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        enrollment_id INTEGER NOT NULL REFERENCES enrollments(id),
+        original_payable INTEGER NOT NULL,
+        adjusted_payable INTEGER NOT NULL,
+        before_snapshot TEXT NOT NULL,
+        after_snapshot TEXT NOT NULL,
+        reason TEXT,
+        adjusted_by INTEGER REFERENCES users(id),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        deleted_at INTEGER
+      )`,
+      `CREATE INDEX IF NOT EXISTS tuition_adjustments_enrollment_idx ON tuition_adjustments (enrollment_id)`,
+      `CREATE INDEX IF NOT EXISTS tuition_adjustments_user_idx ON tuition_adjustments (adjusted_by)`,
+      `CREATE INDEX IF NOT EXISTS tuition_adjustments_created_idx ON tuition_adjustments (created_at)`,
+      `CREATE VIEW IF NOT EXISTS enrollment_tuition AS
+       SELECT x.*,
+         MAX(0, COALESCE(x.payable_override, x.calculated_fee + x.surcharge - x.discount)) AS payable
+       FROM (
+         SELECT e.id AS enrollment_id,
+           e.agreed_fee AS default_fee, e.fee_type, e.custom_fee, e.discount,
+           e.surcharge, e.payable_override,
+           (SELECT COUNT(*) FROM class_sessions cs
+             WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+               AND cs.status <> 'cancelled') AS total_session_count,
+           (SELECT COUNT(*) FROM class_sessions cs
+             WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+               AND cs.status <> 'cancelled' AND cs.session_date >= e.enroll_date) AS eligible_session_count,
+           (SELECT COUNT(DISTINCT substr(cs.session_date, 1, 7)) FROM class_sessions cs
+             WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+               AND cs.status <> 'cancelled' AND cs.session_date >= e.enroll_date) AS billable_month_count,
+           CASE e.fee_type
+             WHEN 'monthly' THEN COALESCE(e.custom_fee, 0) *
+               (SELECT COUNT(DISTINCT substr(cs.session_date, 1, 7)) FROM class_sessions cs
+                 WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+                   AND cs.status <> 'cancelled' AND cs.session_date >= e.enroll_date)
+             WHEN 'per_session' THEN COALESCE(e.custom_fee, 0) *
+               (SELECT COUNT(*) FROM class_sessions cs
+                 WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+                   AND cs.status <> 'cancelled' AND cs.session_date >= e.enroll_date)
+             WHEN 'fixed' THEN COALESCE(e.custom_fee, 0)
+             ELSE CASE
+               WHEN (SELECT COUNT(*) FROM class_sessions cs
+                 WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+                   AND cs.status <> 'cancelled') > 0
+               THEN ROUND(e.agreed_fee * 1.0 *
+                 (SELECT COUNT(*) FROM class_sessions cs
+                   WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+                     AND cs.status <> 'cancelled' AND cs.session_date >= e.enroll_date) /
+                 (SELECT COUNT(*) FROM class_sessions cs
+                   WHERE cs.class_id = e.class_id AND cs.deleted_at IS NULL
+                     AND cs.status <> 'cancelled'))
+               ELSE e.agreed_fee
+             END
+           END AS calculated_fee
+         FROM enrollments e
+       ) x`
+    ]
   }
 ]
 
