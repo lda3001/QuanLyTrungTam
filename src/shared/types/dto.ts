@@ -165,6 +165,7 @@ export interface EnrollInput {
 
 export interface UpdateEnrollmentInput {
   id: number
+  enrollDate?: string
   status?: EnrollmentStatus
   agreedFee?: number
   discount?: number

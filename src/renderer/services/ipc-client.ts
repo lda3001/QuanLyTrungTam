@@ -79,6 +79,11 @@ function endpoint(group: string, action: string, args: unknown[]): Config {
       url: `/classes/${(a as { classId?: number } | undefined)?.classId ?? 0}/enroll`,
       data: a
     },
+    'classes.updateEnrollment': {
+      method: 'put',
+      url: `/classes/enrollments/${(a as { id?: number } | undefined)?.id ?? 0}`,
+      data: a
+    },
     'classes.unenroll': { method: 'post', url: '/classes/0/unenroll', data: { enrollmentId: a } },
     'sessions.move': {
       method: 'post',

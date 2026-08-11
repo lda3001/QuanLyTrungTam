@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
+import { MuiDatePickerApi as DatePicker } from '@/components/common/MuiControls'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
+  Alert,
   Card,
   Col,
   Descriptions,
   Empty,
+  Modal,
   Result,
   Row,
   Space,
   Statistic,
-  Table,
   Tabs,
   Tag,
   Typography
@@ -20,6 +22,7 @@ import {
   CalendarOutlined,
   DeleteOutlined,
   EyeOutlined,
+  EditOutlined,
   FileExcelOutlined,
   ThunderboltOutlined,
   UserAddOutlined,
@@ -27,12 +30,13 @@ import {
 } from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/common/PageHeader'
+import { ResizableTable } from '@/components/common/ResizableTable'
 import { Can, PageSkeleton, SearchInput, StatusTag } from '@/components/common'
 import { EnrollModal } from './EnrollModal'
 import { EnrollImportModal } from './EnrollImportModal'
 import { useNotify } from '@/hooks/useNotify'
 import { classService, scheduleService } from '@/services/academic.service'
-import { formatCurrency, formatDate } from '@/utils/format'
+import { DATE_FORMAT, dayjs, formatCurrency, formatDate, ISO_DATE } from '@/utils/format'
 import {
   ClassStatusColor,
   ClassStatusLabel,
@@ -59,6 +63,8 @@ export default function ClassDetailPage() {
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [enrollImportOpen, setEnrollImportOpen] = useState(false)
   const [studentKeyword, setStudentKeyword] = useState('')
+  const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentDetail | null>(null)
+  const [editedEnrollDate, setEditedEnrollDate] = useState('')
 
   const classQuery = useQuery({
     queryKey: ['class', classId],
@@ -88,8 +94,28 @@ export default function ClassDetailPage() {
     onError: (err) => notify.error(err)
   })
 
+  const updateEnrollmentMutation = useMutation({
+    mutationFn: () =>
+      classService.updateEnrollment({
+        id: editingEnrollment?.id ?? 0,
+        enrollDate: editedEnrollDate
+      }),
+    onSuccess: (enrollment) => {
+      notify.success('Đã cập nhật ngày ghi danh và tính lại học phí.')
+      setEditingEnrollment(null)
+      void queryClient.invalidateQueries({ queryKey: ['class-students', classId] })
+      void queryClient.invalidateQueries({
+        queryKey: ['student-enrollments', enrollment.studentId]
+      })
+      void queryClient.invalidateQueries({ queryKey: ['debts'] })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    },
+    onError: (err) => notify.error(err)
+  })
+
   const generateMutation = useMutation({
-    mutationFn: (replaceExisting: boolean) => scheduleService.generate({ classId, replaceExisting }),
+    mutationFn: (replaceExisting: boolean) =>
+      scheduleService.generate({ classId, replaceExisting }),
     onSuccess: (count) => {
       notify.success(count > 0 ? `Đã tạo ${count} buổi học.` : 'Không có buổi nào cần tạo thêm.')
       void queryClient.invalidateQueries({ queryKey: ['class-sessions', classId] })
@@ -102,9 +128,10 @@ export default function ClassDetailPage() {
   const filteredStudents = useMemo(() => {
     const keyword = studentKeyword.trim().normalize('NFC').toLocaleLowerCase('vi-VN')
     if (!keyword) return students
-    return students.filter((student) =>
-      student.studentCode.toLocaleLowerCase('vi-VN').includes(keyword) ||
-      student.studentName.normalize('NFC').toLocaleLowerCase('vi-VN').includes(keyword)
+    return students.filter(
+      (student) =>
+        student.studentCode.toLocaleLowerCase('vi-VN').includes(keyword) ||
+        student.studentName.normalize('NFC').toLocaleLowerCase('vi-VN').includes(keyword)
     )
   }, [students, studentKeyword])
 
@@ -151,17 +178,24 @@ export default function ClassDetailPage() {
       title: 'Học viên',
       dataIndex: 'studentName',
       width: 200,
-      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => compareStudentName(left.studentName, right.studentName),
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
+        compareStudentName(left.studentName, right.studentName),
       render: (v: string, row: EnrollmentDetail) => (
         <a onClick={() => navigate(`/students/${row.studentId}`)}>{v}</a>
       )
     },
-    { title: 'Điện thoại', dataIndex: 'studentPhone', width: 130, render: (v: string | null) => v ?? '—' },
+    {
+      title: 'Điện thoại',
+      dataIndex: 'studentPhone',
+      width: 130,
+      render: (v: string | null) => v ?? '—'
+    },
     {
       title: 'Ngày ghi danh',
       dataIndex: 'enrollDate',
       width: 130,
-      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => left.enrollDate.localeCompare(right.enrollDate),
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
+        left.enrollDate.localeCompare(right.enrollDate),
       render: (v: string) => formatDate(v)
     },
     {
@@ -178,7 +212,8 @@ export default function ClassDetailPage() {
       dataIndex: 'paidAmount',
       width: 130,
       align: 'right' as const,
-      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => left.paidAmount - right.paidAmount,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
+        left.paidAmount - right.paidAmount,
       render: (v: number) => <Typography.Text type="success">{formatCurrency(v)}</Typography.Text>
     },
     {
@@ -186,7 +221,8 @@ export default function ClassDetailPage() {
       dataIndex: 'remainingAmount',
       width: 130,
       align: 'right' as const,
-      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) => left.remainingAmount - right.remainingAmount,
+      sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
+        left.remainingAmount - right.remainingAmount,
       render: (v: number) =>
         v > 0 ? (
           <Typography.Text type="danger" strong>
@@ -205,23 +241,36 @@ export default function ClassDetailPage() {
     {
       title: '',
       key: 'actions',
-      width: 60,
+      width: 100,
       align: 'center' as const,
       render: (_: unknown, row: EnrollmentDetail) => (
-        <Can permission={PERMISSIONS.CLASS_ENROLL}>
-          <Button
-            type="text"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() =>
-              notify.confirmDelete({
-                title: 'Gỡ khỏi lớp',
-                content: `Gỡ học viên "${row.studentName}" khỏi lớp này?`,
-                onOk: () => unenrollMutation.mutateAsync(row.id)
-              })
-            }
-          />
-        </Can>
+        <Space size={2}>
+          <Can permission={PERMISSIONS.CLASS_UPDATE_ENROLLMENT}>
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              title="Sửa ngày ghi danh"
+              onClick={() => {
+                setEditingEnrollment(row)
+                setEditedEnrollDate(row.enrollDate)
+              }}
+            />
+          </Can>
+          <Can permission={PERMISSIONS.CLASS_ENROLL}>
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() =>
+                notify.confirmDelete({
+                  title: 'Gỡ khỏi lớp',
+                  content: `Gỡ học viên "${row.studentName}" khỏi lớp này?`,
+                  onOk: () => unenrollMutation.mutateAsync(row.id)
+                })
+              }
+            />
+          </Can>
+        </Space>
       )
     }
   ]
@@ -259,7 +308,9 @@ export default function ClassDetailPage() {
       dataIndex: 'status',
       width: 140,
       render: (v: keyof typeof SessionStatusLabel) => (
-        <Tag color={v === 'done' ? 'green' : v === 'cancelled' ? 'red' : 'blue'}>{SessionStatusLabel[v]}</Tag>
+        <Tag color={v === 'done' ? 'green' : v === 'cancelled' ? 'red' : 'blue'}>
+          {SessionStatusLabel[v]}
+        </Tag>
       )
     },
     {
@@ -287,7 +338,11 @@ export default function ClassDetailPage() {
       <PageHeader
         title={classroom.name}
         subtitle={`${classroom.code} · ${classroom.courseName}`}
-        breadcrumbs={[{ title: 'Đào tạo' }, { title: 'Lớp học', href: '/classes' }, { title: classroom.name }]}
+        breadcrumbs={[
+          { title: 'Đào tạo' },
+          { title: 'Lớp học', href: '/classes' },
+          { title: classroom.name }
+        ]}
         extra={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/classes')}>
@@ -339,13 +394,25 @@ export default function ClassDetailPage() {
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label="Mã lớp">{classroom.code}</Descriptions.Item>
               <Descriptions.Item label="Khoá học">{classroom.courseName}</Descriptions.Item>
-              <Descriptions.Item label="Giáo viên">{classroom.teacherName ?? 'Chưa phân công'}</Descriptions.Item>
+              <Descriptions.Item label="Giáo viên">
+                {classroom.teacherName ?? 'Chưa phân công'}
+              </Descriptions.Item>
               <Descriptions.Item label="Phòng học">{classroom.room ?? '—'}</Descriptions.Item>
-              <Descriptions.Item label="Khai giảng">{formatDate(classroom.startDate)}</Descriptions.Item>
-              <Descriptions.Item label="Kết thúc">{formatDate(classroom.endDate)}</Descriptions.Item>
-              <Descriptions.Item label="Học phí">{formatCurrency(classroom.courseFee)}</Descriptions.Item>
+              <Descriptions.Item label="Khai giảng">
+                {formatDate(classroom.startDate)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Kết thúc">
+                {formatDate(classroom.endDate)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Học phí">
+                {formatCurrency(classroom.courseFee)}
+              </Descriptions.Item>
               <Descriptions.Item label="Trạng thái">
-                <StatusTag value={classroom.status} labels={ClassStatusLabel} colors={ClassStatusColor} />
+                <StatusTag
+                  value={classroom.status}
+                  labels={ClassStatusLabel}
+                  colors={ClassStatusColor}
+                />
               </Descriptions.Item>
               <Descriptions.Item label="Lịch học">
                 <Space size={4} wrap>
@@ -375,7 +442,11 @@ export default function ClassDetailPage() {
                 />
               </Col>
               <Col span={12}>
-                <Statistic title="Số buổi đã tạo" value={sessions.length} prefix={<CalendarOutlined />} />
+                <Statistic
+                  title="Số buổi đã tạo"
+                  value={sessions.length}
+                  prefix={<CalendarOutlined />}
+                />
               </Col>
               <Col span={24} style={{ marginTop: 16 }}>
                 <Statistic
@@ -405,21 +476,25 @@ export default function ClassDetailPage() {
                         placeholder="Tìm mã học viên hoặc họ tên..."
                         width={300}
                       />
-                    <Table<EnrollmentDetail>
-                      style={{ marginTop: 12 }}
-                      rowKey="id"
-                      size="middle"
-                      columns={studentColumns}
-                      dataSource={filteredStudents}
-                      loading={studentsQuery.isLoading}
-                      pagination={{ pageSize: 15, size: 'small' }}
-                      scroll={{ x: 'max-content' }}
-                      locale={{
-                        emptyText: (
-                          <Empty description="Lớp chưa có học viên" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                        )
-                      }}
-                    />
+                      <ResizableTable<EnrollmentDetail>
+                        style={{ marginTop: 12 }}
+                        rowKey="id"
+                        size="middle"
+                        columnStorageKey="app-table-widths:class-detail-students"
+                        columns={studentColumns}
+                        dataSource={filteredStudents}
+                        loading={studentsQuery.isLoading}
+                        pagination={{ pageSize: 15, size: 'small' }}
+                        scroll={{ x: 'max-content' }}
+                        locale={{
+                          emptyText: (
+                            <Empty
+                              description="Lớp chưa có học viên"
+                              image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            />
+                          )
+                        }}
+                      />
                     </>
                   )
                 },
@@ -427,9 +502,10 @@ export default function ClassDetailPage() {
                   key: 'sessions',
                   label: `Buổi học (${sessions.length})`,
                   children: (
-                    <Table<ClassSessionDetail>
+                    <ResizableTable<ClassSessionDetail>
                       rowKey="id"
                       size="middle"
+                      columnStorageKey="app-table-widths:class-detail-sessions"
                       columns={sessionColumns}
                       dataSource={sessions}
                       loading={sessionsQuery.isLoading}
@@ -467,6 +543,39 @@ export default function ClassDetailPage() {
         remainingSlots={remainingSlots}
         onClose={() => setEnrollImportOpen(false)}
       />
+
+      <Modal
+        open={!!editingEnrollment}
+        title="Sửa ngày ghi danh"
+        okText="Lưu thay đổi"
+        cancelText="Huỷ"
+        confirmLoading={updateEnrollmentMutation.isPending}
+        okButtonProps={{ disabled: !editedEnrollDate }}
+        onOk={() => updateEnrollmentMutation.mutate()}
+        onCancel={() => setEditingEnrollment(null)}
+        destroyOnHidden
+      >
+        {editingEnrollment && (
+          <>
+            <Alert
+              type="info"
+              showIcon
+              message={`${editingEnrollment.studentName} · ${classroom.name}`}
+              description="Các buổi trước ngày ghi danh mới sẽ không được tính. Học phí và công nợ sẽ tự động được tính lại sau khi lưu."
+              style={{ marginBottom: 16 }}
+            />
+            <Space>
+              <Typography.Text>Ngày ghi danh:</Typography.Text>
+              <DatePicker
+                value={editedEnrollDate ? dayjs(editedEnrollDate, ISO_DATE) : null}
+                onChange={(value) => setEditedEnrollDate(value ? value.format(ISO_DATE) : '')}
+                format={DATE_FORMAT}
+                allowClear={false}
+              />
+            </Space>
+          </>
+        )}
+      </Modal>
     </>
   )
 }

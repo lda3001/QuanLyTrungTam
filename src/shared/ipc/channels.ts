@@ -120,6 +120,10 @@ export const IPC = {
   FILE_IMPORT_EXCEL_RAW: 'file:import-excel-raw',
   FILE_PRINT_HTML: 'file:print-html',
   APP_INFO: 'app:info',
+  APP_UPDATE_CHECK: 'app:update-check',
+  APP_UPDATE_DOWNLOAD: 'app:update-download',
+  APP_UPDATE_INSTALL: 'app:update-install',
+  APP_UPDATE_STATUS: 'app:update-status',
   WINDOW_MINIMIZE: 'window:minimize',
   WINDOW_MAXIMIZE: 'window:maximize',
   WINDOW_CLOSE: 'window:close'

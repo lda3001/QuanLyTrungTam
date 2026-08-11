@@ -34,6 +34,7 @@ export const PERMISSIONS = {
   CLASS_UPDATE: 'class:update',
   CLASS_DELETE: 'class:delete',
   CLASS_ENROLL: 'class:enroll',
+  CLASS_UPDATE_ENROLLMENT: 'class:update-enrollment',
 
   // Điểm danh
   ATTENDANCE_VIEW: 'attendance:view',
@@ -120,7 +121,8 @@ export const PERMISSION_GROUPS: { key: string; label: string; permissions: Permi
       PERMISSIONS.CLASS_CREATE,
       PERMISSIONS.CLASS_UPDATE,
       PERMISSIONS.CLASS_DELETE,
-      PERMISSIONS.CLASS_ENROLL
+      PERMISSIONS.CLASS_ENROLL,
+      PERMISSIONS.CLASS_UPDATE_ENROLLMENT
     ]
   },
   {
@@ -189,6 +191,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'class:update': 'Sửa lớp học',
   'class:delete': 'Xoá lớp học',
   'class:enroll': 'Xếp lớp học viên',
+  'class:update-enrollment': 'Sửa ngày ghi danh',
   'attendance:view': 'Xem điểm danh',
   'attendance:mark': 'Thực hiện điểm danh',
   'payment:view': 'Xem học phí',

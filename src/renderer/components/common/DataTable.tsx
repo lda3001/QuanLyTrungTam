@@ -1,6 +1,7 @@
-import { Card, Empty, Skeleton, Table } from 'antd'
+import { Card, Empty, Skeleton } from 'antd'
 import type { TableProps } from 'antd'
 import type { ReactNode } from 'react'
+import { ResizableTable } from './ResizableTable'
 
 interface Props<T> extends Omit<TableProps<T>, 'pagination'> {
   /** Tổng số bản ghi từ server (phân trang phía server) */
@@ -13,17 +14,15 @@ interface Props<T> extends Omit<TableProps<T>, 'pagination'> {
   emptyText?: string
   /** Bật cuộn ảo — chỉ dùng khi hiển thị hàng nghìn dòng cùng lúc */
   virtual?: boolean
+  /** Tắt nếu một bảng đặc biệt không cần cho phép kéo thay đổi độ rộng cột. */
+  resizableColumns?: boolean
+  /** Khóa lưu độ rộng; mặc định được tạo từ danh sách cột của bảng. */
+  columnStorageKey?: string
 }
 
 /**
- * Bảng dùng chung.
- *
- * Gói sẵn: phân trang phía server, skeleton lần tải đầu, cuộn ngang khi
- * nhiều cột, và trạng thái rỗng bằng tiếng Việt.
- *
- * Điểm đáng lưu ý: lần tải ĐẦU TIÊN hiện skeleton, còn các lần tải sau
- * (đổi trang, lọc) chỉ hiện spinner của Table — bảng đang có dữ liệu mà biến
- * mất rồi hiện lại sẽ khiến màn hình nhấp nháy.
+ * Bảng dùng chung: phân trang server, skeleton lần tải đầu, cuộn ngang,
+ * trạng thái rỗng và thay đổi độ rộng cột bằng thao tác kéo.
  */
 export function DataTable<T extends object>({
   total,
@@ -33,6 +32,8 @@ export function DataTable<T extends object>({
   toolbar,
   emptyText = 'Không có dữ liệu',
   virtual,
+  resizableColumns = true,
+  columnStorageKey,
   dataSource,
   rowKey = 'id',
   ...rest
@@ -46,13 +47,14 @@ export function DataTable<T extends object>({
       {isFirstLoad ? (
         <Skeleton active paragraph={{ rows: 8 }} />
       ) : (
-        <Table<T>
-          className="app-table"
+        <ResizableTable<T>
           size="middle"
           rowKey={rowKey}
           dataSource={dataSource}
           loading={loading}
           virtual={virtual}
+          resizableColumns={resizableColumns}
+          columnStorageKey={columnStorageKey}
           scroll={virtual ? { x: 'max-content', y: 520 } : { x: 'max-content' }}
           locale={{ emptyText: <Empty description={emptyText} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
           pagination={

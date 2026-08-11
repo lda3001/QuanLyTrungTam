@@ -374,6 +374,44 @@ body {
   font-weight: 600;
 }
 
+.app-table .ant-table-thead > tr > th.app-column-resizable {
+  position: relative;
+}
+
+.app-column-resize-handle {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: -4px;
+  width: 9px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.app-column-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  left: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.app-column-resize-handle:hover::after,
+.app-column-resize-handle.is-resizing::after {
+  background: var(--ant-color-primary, #1677ff);
+}
+
+body.app-column-resizing,
+body.app-column-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* Hàng chẵn nền nhạt: mắt dễ dò ngang trên bảng nhiều cột */
 .app-table .ant-table-tbody > tr:nth-child(even) > td {
   background: var(--ant-color-fill-quaternary, rgba(0, 0, 0, 0.02));
@@ -430,6 +468,178 @@ body {
   width: 100%;
   max-width: 420px;
   animation: app-fade-in-up 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------------- Màn hình khởi động / cập nhật ---------------- */
+
+.startup-screen {
+  position: relative;
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  overflow: hidden;
+  padding: 32px;
+  isolation: isolate;
+}
+
+.startup-glow {
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(4px);
+  pointer-events: none;
+}
+
+.startup-glow-one {
+  top: -260px;
+  left: -220px;
+  width: 620px;
+  height: 620px;
+  background: radial-gradient(circle, rgba(22, 119, 255, 0.2), transparent 68%);
+}
+
+.startup-glow-two {
+  right: -260px;
+  bottom: -300px;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(82, 196, 26, 0.13), transparent 68%);
+}
+
+.startup-panel {
+  display: flex;
+  align-items: center;
+  width: min(100%, 460px);
+  min-height: 520px;
+  padding: 42px 46px 36px;
+  flex-direction: column;
+  text-align: center;
+  background: color-mix(in srgb, var(--ant-color-bg-container, #fff) 92%, transparent);
+  border: 1px solid var(--ant-color-border-secondary, rgba(0, 0, 0, 0.06));
+  border-radius: 24px;
+  box-shadow: 0 28px 80px rgba(31, 45, 61, 0.14);
+  backdrop-filter: blur(18px);
+  animation: app-fade-in-up 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.startup-brand-mark {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  color: #fff;
+  font-size: 31px;
+  background: linear-gradient(145deg, #1677ff, #4096ff 58%, #69b1ff);
+  border-radius: 20px;
+  box-shadow: 0 14px 32px rgba(22, 119, 255, 0.3);
+}
+
+.startup-brand-title.ant-typography {
+  margin: 17px 0 2px;
+}
+
+.startup-version {
+  font-size: 12px;
+}
+
+.startup-status-icon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  margin-top: 48px;
+  place-items: center;
+  color: var(--ant-color-primary, #1677ff);
+  font-size: 30px;
+  background: var(--ant-color-primary-bg, #e6f4ff);
+  border-radius: 50%;
+}
+
+.startup-status-icon.stage-error {
+  color: var(--ant-color-error, #ff4d4f);
+  background: var(--ant-color-error-bg, #fff2f0);
+}
+
+.startup-status-icon.stage-downloaded,
+.startup-status-icon.stage-not-available {
+  color: var(--ant-color-success, #52c41a);
+  background: var(--ant-color-success-bg, #f6ffed);
+}
+
+.startup-status-icon.stage-checking,
+.startup-status-icon.stage-idle,
+.startup-status-icon.stage-installing {
+  animation: startup-pulse 1.65s ease-in-out infinite;
+}
+
+@keyframes startup-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(22, 119, 255, 0.2);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(22, 119, 255, 0);
+  }
+}
+
+.startup-status-title.ant-typography {
+  margin: 16px 0 5px;
+}
+
+.startup-status-description.ant-typography {
+  min-height: 44px;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.startup-indeterminate {
+  width: 100%;
+  margin-top: 9px;
+}
+
+.startup-indeterminate .ant-progress-bg {
+  animation: startup-progress 1.45s ease-in-out infinite;
+  transform-origin: left;
+}
+
+@keyframes startup-progress {
+  0% {
+    transform: scaleX(0.08);
+    opacity: 0.45;
+  }
+  55% {
+    transform: scaleX(0.72);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+
+.startup-actions {
+  margin-top: 18px;
+}
+
+.startup-skip-button {
+  margin-top: 10px;
+}
+
+.startup-wait-note {
+  margin-top: 16px;
+  font-size: 12px;
+}
+
+@media (max-width: 560px) {
+  .startup-screen {
+    padding: 16px;
+  }
+
+  .startup-panel {
+    min-height: 500px;
+    padding: 34px 24px 28px;
+  }
 }
 
 /* ---------------- In phiếu thu ---------------- */

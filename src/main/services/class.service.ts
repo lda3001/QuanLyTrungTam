@@ -4,7 +4,14 @@ import { audit } from './audit'
 import { AppError } from '../utils/errors'
 import type { PageResult, SelectOption } from '@shared/types/common'
 import type { ClassRoomDetail, EnrollmentDetail, Student } from '@shared/types/entities'
-import type { ClassInput, ClassQuery, EnrollImportInput, EnrollInput, ImportResult } from '@shared/types/dto'
+import type {
+  ClassInput,
+  ClassQuery,
+  EnrollImportInput,
+  EnrollInput,
+  ImportResult,
+  UpdateEnrollmentInput
+} from '@shared/types/dto'
 
 export class ClassService {
   list(query: ClassQuery): PageResult<ClassRoomDetail> {
@@ -52,15 +59,59 @@ export class ClassService {
   enroll(input: EnrollInput): number {
     if (!input.studentIds?.length) throw AppError.validation('Chưa chọn học viên nào.')
     const count = classRepository.enroll(input)
-    audit('enroll', 'enrollments', input.classId, `Xếp ${count} học viên vào lớp #${input.classId}`, {
-      studentIds: input.studentIds
-    })
+    audit(
+      'enroll',
+      'enrollments',
+      input.classId,
+      `Xếp ${count} học viên vào lớp #${input.classId}`,
+      {
+        studentIds: input.studentIds
+      }
+    )
     return count
+  }
+
+  updateEnrollment(input: UpdateEnrollmentInput): EnrollmentDetail {
+    if (!input?.id) throw AppError.validation('Thiếu thông tin ghi danh.')
+    const parsedDate = input.enrollDate ? new Date(`${input.enrollDate}T00:00:00Z`) : null
+    if (
+      !input.enrollDate ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(input.enrollDate) ||
+      !parsedDate ||
+      Number.isNaN(parsedDate.getTime()) ||
+      parsedDate.toISOString().slice(0, 10) !== input.enrollDate
+    ) {
+      throw AppError.validation('Ngày ghi danh không hợp lệ.')
+    }
+
+    const { enrollment, oldDate, oldPayable } = classRepository.updateEnrollmentDate(
+      input.id,
+      input.enrollDate
+    )
+    audit(
+      'update',
+      'enrollments',
+      input.id,
+      `Sửa ngày ghi danh của ${enrollment.studentName}: ${oldDate} → ${input.enrollDate}`,
+      {
+        oldDate,
+        newDate: input.enrollDate,
+        oldPayable,
+        newPayable: enrollment.payableAmount
+      }
+    )
+    return enrollment
   }
 
   unenroll(enrollmentId: number): boolean {
     const done = classRepository.unenroll(enrollmentId)
-    if (done) audit('unenroll', 'enrollments', enrollmentId, `Gỡ học viên khỏi lớp (ghi danh #${enrollmentId})`)
+    if (done)
+      audit(
+        'unenroll',
+        'enrollments',
+        enrollmentId,
+        `Gỡ học viên khỏi lớp (ghi danh #${enrollmentId})`
+      )
     return done
   }
 
@@ -80,7 +131,8 @@ export class ClassService {
 
   private validate(input: ClassInput): void {
     if (!input.name?.trim()) throw AppError.validation('Tên lớp không được để trống.')
-    if (!courseRepository.exists(input.courseId)) throw AppError.validation('Khoá học không tồn tại.')
+    if (!courseRepository.exists(input.courseId))
+      throw AppError.validation('Khoá học không tồn tại.')
     if (input.maxStudents < 1) throw AppError.validation('Sĩ số tối đa phải lớn hơn 0.')
 
     if (input.startDate && input.endDate && input.startDate > input.endDate) {
@@ -92,7 +144,8 @@ export class ClassService {
     for (const s of input.schedules ?? []) {
       if (s.weekday < 0 || s.weekday > 6) throw AppError.validation('Thứ trong tuần không hợp lệ.')
       const key = `${s.weekday}|${s.startTime}`
-      if (seen.has(key)) throw AppError.validation('Có hai khung giờ trùng nhau trong cùng một ngày.')
+      if (seen.has(key))
+        throw AppError.validation('Có hai khung giờ trùng nhau trong cùng một ngày.')
       seen.add(key)
     }
   }

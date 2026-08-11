@@ -1,4 +1,5 @@
 import type { IpcResult, PageResult, SelectOption } from '../types/common'
+import type { UpdateStatus } from '../types/update'
 import type {
   ActivityLog,
   AppSetting,
@@ -34,6 +35,7 @@ import type {
   DebtRow,
   EnrollImportInput,
   EnrollInput,
+  UpdateEnrollmentInput,
   ExportPdfRequest,
   ExportRequest,
   GenerateSessionsInput,
@@ -121,6 +123,7 @@ export interface AppApi {
     students(classId: number): R<EnrollmentDetail[]>
     availableStudents(classId: number, keyword?: string): R<Student[]>
     enroll(input: EnrollInput): R<number>
+    updateEnrollment(input: UpdateEnrollmentInput): R<EnrollmentDetail>
     unenroll(enrollmentId: number): R<boolean>
     /** Xếp học viên vào lớp hàng loạt từ file Excel (chỉ khớp HV đã có) */
     enrollImport(input: EnrollImportInput): R<ImportResult>
@@ -210,6 +213,10 @@ export interface AppApi {
 
   app: {
     info(): R<{ version: string; platform: string; dbPath: string }>
+    checkForUpdates(): R<UpdateStatus>
+    downloadUpdate(): R<UpdateStatus>
+    installUpdate(): void
+    onUpdateStatus(listener: (status: UpdateStatus) => void): () => void
     minimize(): void
     maximize(): void
     close(): void

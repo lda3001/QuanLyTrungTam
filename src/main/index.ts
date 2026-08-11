@@ -143,7 +143,7 @@ if (!gotLock) {
     }
 
     createWindow()
-    initializeAutoUpdater(() => mainWindow)
+    initializeAutoUpdater()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow()

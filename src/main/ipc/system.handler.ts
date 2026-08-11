@@ -9,6 +9,7 @@ import { dashboardService, reportService, settingService } from '../services/rep
 import { fileService } from '../services/file.service'
 import { logRepository } from '../repositories/log.repository'
 import { getDbFilePath } from '../database/connection'
+import { checkForUpdates, downloadUpdate, installUpdate } from '../services/auto-update.service'
 import type {
   AdminResetPasswordInput,
   DebtQuery,
@@ -151,6 +152,12 @@ export function registerSystemHandlers(): void {
     platform: process.platform,
     dbPath: getDbFilePath()
   }))
+
+  registerHandler(IPC.APP_UPDATE_CHECK, { public: true }, () => checkForUpdates())
+  registerHandler(IPC.APP_UPDATE_DOWNLOAD, { public: true }, () => downloadUpdate())
+  registerListener(IPC.APP_UPDATE_INSTALL, () => {
+    installUpdate()
+  })
 
   registerListener(IPC.WINDOW_MINIMIZE, (event) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize()

@@ -68,6 +68,7 @@ const api: AppApi = {
     students: (id) => invoke(IPC.CLASS_STUDENTS, id),
     availableStudents: (id, keyword) => invoke(IPC.CLASS_AVAILABLE_STUDENTS, id, keyword),
     enroll: (input) => invoke(IPC.CLASS_ENROLL, input),
+    updateEnrollment: (input) => invoke(IPC.CLASS_UPDATE_ENROLLMENT, input),
     unenroll: (id) => invoke(IPC.CLASS_UNENROLL, id),
     enrollImport: (input) => invoke(IPC.CLASS_ENROLL_IMPORT, input),
     enrollTemplate: () => invoke(IPC.CLASS_ENROLL_TEMPLATE)
@@ -153,6 +154,15 @@ const api: AppApi = {
 
   app: {
     info: () => invoke(IPC.APP_INFO),
+    checkForUpdates: () => invoke(IPC.APP_UPDATE_CHECK),
+    downloadUpdate: () => invoke(IPC.APP_UPDATE_DOWNLOAD),
+    installUpdate: () => ipcRenderer.send(IPC.APP_UPDATE_INSTALL),
+    onUpdateStatus: (listener) => {
+      const handler = (_event: Electron.IpcRendererEvent, status: Parameters<typeof listener>[0]) =>
+        listener(status)
+      ipcRenderer.on(IPC.APP_UPDATE_STATUS, handler)
+      return () => ipcRenderer.removeListener(IPC.APP_UPDATE_STATUS, handler)
+    },
     minimize: () => ipcRenderer.send(IPC.WINDOW_MINIMIZE),
     maximize: () => ipcRenderer.send(IPC.WINDOW_MAXIMIZE),
     close: () => ipcRenderer.send(IPC.WINDOW_CLOSE)

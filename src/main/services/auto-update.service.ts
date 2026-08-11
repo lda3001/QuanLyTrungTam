@@ -1,72 +1,179 @@
-import { app, BrowserWindow, dialog, type MessageBoxOptions, type MessageBoxReturnValue } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import type { ProgressInfo, UpdateInfo } from 'electron-updater'
+import { IPC } from '@shared/ipc/channels'
+import type { UpdateStatus } from '@shared/types/update'
 
 let initialized = false
+let checking: Promise<UpdateStatus> | null = null
+let downloading: Promise<UpdateStatus> | null = null
+let installRequested = false
 
-function showMessage(
-  parent: BrowserWindow | null,
-  options: MessageBoxOptions
-): Promise<MessageBoxReturnValue> {
-  return parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options)
+let status: UpdateStatus = {
+  stage: 'idle',
+  currentVersion: app.getVersion()
+}
+
+function publish(next: UpdateStatus): UpdateStatus {
+  status = next
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) window.webContents.send(IPC.APP_UPDATE_STATUS, status)
+  }
+  return status
+}
+
+function base(stage: UpdateStatus['stage']): UpdateStatus {
+  return {
+    stage,
+    currentVersion: app.getVersion(),
+    availableVersion: status.availableVersion
+  }
+}
+
+function onUpdateAvailable(info: UpdateInfo): void {
+  publish({
+    ...base('available'),
+    availableVersion: info.version,
+    message: `Phiên bản ${info.version} đã sẵn sàng.`
+  })
+}
+
+function onDownloadProgress(progress: ProgressInfo): void {
+  publish({
+    ...base('downloading'),
+    percent: Math.max(0, Math.min(100, progress.percent)),
+    transferred: progress.transferred,
+    total: progress.total,
+    bytesPerSecond: progress.bytesPerSecond
+  })
 }
 
 /**
- * Check GitHub Releases for a newer NSIS build.
- * Development builds are intentionally skipped because they do not contain
- * app-update.yml and cannot safely exercise the installer flow.
+ * Khởi tạo updater một lần. Việc kiểm tra chỉ bắt đầu khi màn hình khởi động
+ * gọi checkForUpdates, nhờ vậy login không xuất hiện trước kết quả kiểm tra.
  */
-export function initializeAutoUpdater(parent: () => BrowserWindow | null): void {
-  if (initialized || !app.isPackaged) return
+export function initializeAutoUpdater(): void {
+  if (initialized) return
   initialized = true
+
+  if (!app.isPackaged) {
+    publish({
+      ...base('disabled'),
+      message: 'Chế độ phát triển không sử dụng trình cập nhật tự động.'
+    })
+    return
+  }
 
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoRunAppAfterInstall = true
+
+  autoUpdater.on('checking-for-update', () => {
+    publish({ ...base('checking'), message: 'Đang kết nối máy chủ cập nhật…' })
+  })
+
+  autoUpdater.on('update-available', onUpdateAvailable)
+
+  autoUpdater.on('update-not-available', () => {
+    publish({
+      ...base('not-available'),
+      availableVersion: undefined,
+      message: 'Bạn đang sử dụng phiên bản mới nhất.'
+    })
+  })
+
+  autoUpdater.on('download-progress', onDownloadProgress)
+
+  autoUpdater.on('update-downloaded', (info) => {
+    publish({
+      ...base('downloaded'),
+      availableVersion: info.version,
+      percent: 100,
+      message: 'Bản cập nhật đã tải xong và sẵn sàng cài đặt.'
+    })
+  })
 
   autoUpdater.on('error', (error) => {
-    // Update failures must never prevent the centre-management app from opening.
+    const errorContext = status.stage === 'downloading' ? 'download' : 'check'
     console.error('[updater] Kiểm tra/cập nhật thất bại:', error)
-  })
-
-  autoUpdater.on('update-available', async (info) => {
-    const result = await showMessage(parent(), {
-      type: 'info',
-      title: 'Có bản cập nhật mới',
-      message: `Đã có phiên bản ${info.version}`,
-      detail: 'Bạn có muốn tải bản cập nhật ngay bây giờ không? Ứng dụng vẫn có thể được sử dụng trong khi tải.',
-      buttons: ['Tải cập nhật', 'Để sau'],
-      defaultId: 0,
-      cancelId: 1,
-      noLink: true
+    publish({
+      ...base('error'),
+      errorContext,
+      message: error.message || 'Không thể kết nối đến máy chủ cập nhật.'
     })
+  })
+}
 
-    if (result.response === 0) {
-      try {
-        await autoUpdater.downloadUpdate()
-      } catch (error) {
-        console.error('[updater] Không tải được bản cập nhật:', error)
+export function getUpdateStatus(): UpdateStatus {
+  return status
+}
+
+export function checkForUpdates(): Promise<UpdateStatus> {
+  initializeAutoUpdater()
+  if (!app.isPackaged) return Promise.resolve(status)
+  if (checking) return checking
+
+  publish({ ...base('checking'), message: 'Đang kiểm tra phiên bản mới…' })
+  checking = autoUpdater
+    .checkForUpdates()
+    .then(() => status)
+    .catch((error: Error) => {
+      if (status.stage !== 'error') {
+        publish({
+          ...base('error'),
+          errorContext: 'check',
+          message: error.message || 'Không thể kiểm tra bản cập nhật.'
+        })
       }
-    }
-  })
-
-  autoUpdater.on('update-downloaded', async (info) => {
-    const result = await showMessage(parent(), {
-      type: 'info',
-      title: 'Cập nhật đã sẵn sàng',
-      message: `Phiên bản ${info.version} đã tải xong`,
-      detail: 'Khởi động lại ứng dụng để hoàn tất cập nhật. Dữ liệu SQLite hiện tại được giữ nguyên.',
-      buttons: ['Khởi động lại và cập nhật', 'Cập nhật khi thoát'],
-      defaultId: 0,
-      cancelId: 1,
-      noLink: true
+      return status
+    })
+    .finally(() => {
+      checking = null
     })
 
-    if (result.response === 0) autoUpdater.quitAndInstall(false, true)
+  return checking
+}
+
+export function downloadUpdate(): Promise<UpdateStatus> {
+  initializeAutoUpdater()
+  if (status.stage === 'downloaded') return Promise.resolve(status)
+  if (!app.isPackaged) return Promise.resolve(status)
+  if (downloading) return downloading
+  if (status.stage !== 'available' && !(status.stage === 'error' && status.availableVersion)) {
+    return Promise.reject(new Error('Chưa có bản cập nhật nào để tải xuống.'))
+  }
+
+  publish({ ...base('downloading'), percent: 0, message: 'Đang bắt đầu tải bản cập nhật…' })
+  downloading = autoUpdater
+    .downloadUpdate()
+    .then(() => status)
+    .catch((error: Error) => {
+      if (status.stage !== 'error') {
+        publish({
+          ...base('error'),
+          errorContext: 'download',
+          message: error.message || 'Không thể tải bản cập nhật.'
+        })
+      }
+      return status
+    })
+    .finally(() => {
+      downloading = null
+    })
+
+  return downloading
+}
+
+export function installUpdate(): boolean {
+  if (status.stage !== 'downloaded' || installRequested) return false
+  installRequested = true
+  publish({
+    ...base('installing'),
+    percent: 100,
+    message: 'Ứng dụng đang khởi động lại để cài đặt bản cập nhật…'
   })
 
-  // Let the main window become responsive before making the network request.
-  setTimeout(() => {
-    void autoUpdater.checkForUpdates().catch((error) => {
-      console.error('[updater] Không thể kết nối GitHub Releases:', error)
-    })
-  }, 5_000)
+  // Cho renderer đủ thời gian vẽ trạng thái cuối trước khi đóng các cửa sổ.
+  setTimeout(() => autoUpdater.quitAndInstall(false, true), 600)
+  return true
 }

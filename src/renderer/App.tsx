@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RouterProvider } from 'react-router-dom'
 import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd'
 import viVN from 'antd/locale/vi_VN'
@@ -13,6 +13,7 @@ import { dayjs } from '@/utils/format'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
+import { StartupScreen } from '@/components/system/StartupScreen'
 
 /**
  * Cấu hình React Query cho ứng dụng desktop.
@@ -40,6 +41,7 @@ const queryClient = new QueryClient({
 })
 
 export default function App() {
+  const [startupComplete, setStartupComplete] = useState(false)
   const themeMode = useUiStore((s) => s.themeMode)
   const primaryColor = useUiStore((s) => s.primaryColor)
   const compact = useUiStore((s) => s.compact)
@@ -52,6 +54,8 @@ export default function App() {
    * Phiên do main process giữ; ở đây chỉ hỏi lại "tôi là ai".
    */
   useEffect(() => {
+    if (!startupComplete) return undefined
+
     let cancelled = false
 
     void authService
@@ -69,7 +73,9 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [setUser, setInitializing])
+  }, [setUser, setInitializing, startupComplete])
+
+  const completeStartup = useCallback(() => setStartupComplete(true), [])
 
   // Đồng bộ màu nền của <body> với theme để viền cửa sổ không bị lệch màu
   useEffect(() => {
@@ -160,7 +166,11 @@ export default function App() {
           <ThemeProvider theme={muiTheme}>
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="vi">
               <ErrorBoundary>
-                <RouterProvider router={router} />
+                {startupComplete ? (
+                  <RouterProvider router={router} />
+                ) : (
+                  <StartupScreen onComplete={completeStartup} />
+                )}
               </ErrorBoundary>
             </LocalizationProvider>
           </ThemeProvider>

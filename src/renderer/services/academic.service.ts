@@ -24,6 +24,7 @@ import type {
   CourseQuery,
   EnrollImportInput,
   EnrollInput,
+  UpdateEnrollmentInput,
   GenerateSessionsInput,
   ImportResult,
   MarkAttendanceInput,
@@ -46,7 +47,8 @@ export const studentService = {
   bulkRemove: (ids: number[]): Promise<number> => call(api().students.bulkRemove(ids)),
   options: (keyword?: string): Promise<SelectOption[]> => call(api().students.options(keyword)),
   schoolClasses: (): Promise<string[]> => call(api().students.schoolClasses()),
-  importRows: (rows: StudentImportRow[]): Promise<ImportResult> => call(api().students.importRows(rows)),
+  importRows: (rows: StudentImportRow[]): Promise<ImportResult> =>
+    call(api().students.importRows(rows)),
   importTemplate: (): Promise<string | null> =>
     window.api
       ? call(api().students.importTemplate())
@@ -77,26 +79,29 @@ export const classService = {
   list: (q: ClassQuery): Promise<PageResult<ClassRoomDetail>> => call(api().classes.list(q)),
   get: (id: number): Promise<ClassRoomDetail> => call(api().classes.get(id)),
   create: (i: ClassInput): Promise<ClassRoomDetail> => call(api().classes.create(i)),
-  update: (id: number, i: ClassInput): Promise<ClassRoomDetail> => call(api().classes.update(id, i)),
+  update: (id: number, i: ClassInput): Promise<ClassRoomDetail> =>
+    call(api().classes.update(id, i)),
   remove: (id: number): Promise<boolean> => call(api().classes.remove(id)),
   options: (): Promise<SelectOption[]> => call(api().classes.options()),
   students: (id: number): Promise<EnrollmentDetail[]> => call(api().classes.students(id)),
   availableStudents: (id: number, keyword?: string): Promise<Student[]> =>
     call(api().classes.availableStudents(id, keyword)),
   enroll: (i: EnrollInput): Promise<number> => call(api().classes.enroll(i)),
+  updateEnrollment: (i: UpdateEnrollmentInput): Promise<EnrollmentDetail> =>
+    call(api().classes.updateEnrollment(i)),
   unenroll: (id: number): Promise<boolean> => call(api().classes.unenroll(id)),
-  enrollImport: (i: EnrollImportInput): Promise<ImportResult> => call(api().classes.enrollImport(i)),
+  enrollImport: (i: EnrollImportInput): Promise<ImportResult> =>
+    call(api().classes.enrollImport(i)),
   enrollTemplate: (): Promise<string | null> =>
-    window.api
-      ? call(api().classes.enrollTemplate())
-      : browserFileService.downloadEnrollTemplate()
+    window.api ? call(api().classes.enrollTemplate()) : browserFileService.downloadEnrollTemplate()
 }
 
 export const scheduleService = {
   list: (q: SessionQuery): Promise<ClassSessionDetail[]> => call(api().sessions.list(q)),
   get: (id: number): Promise<ClassSessionDetail> => call(api().sessions.get(id)),
   create: (i: SessionInput): Promise<ClassSession> => call(api().sessions.create(i)),
-  update: (id: number, i: SessionInput): Promise<ClassSession> => call(api().sessions.update(id, i)),
+  update: (id: number, i: SessionInput): Promise<ClassSession> =>
+    call(api().sessions.update(id, i)),
   remove: (id: number): Promise<boolean> => call(api().sessions.remove(id)),
   move: (i: MoveSessionInput): Promise<ClassSession> => call(api().sessions.move(i)),
   generate: (i: GenerateSessionsInput): Promise<number> => call(api().sessions.generate(i))

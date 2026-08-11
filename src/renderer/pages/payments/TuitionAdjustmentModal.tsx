@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { MuiSelect as Select } from '@/components/common/MuiControls'
 import {
   Alert,
   Button,
@@ -7,7 +8,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Select,
   Space,
   Switch,
   Timeline,
@@ -155,7 +155,7 @@ export function TuitionAdjustmentModal({
             onFinish={(values) => mutation.mutate(values)}
           >
             <Form.Item name="feeType" label="Cách tính học phí" rules={[{ required: true }]}>
-              <Select options={feeTypeOptions} />
+              <Select options={feeTypeOptions} style={{ width: '100%' }} />
             </Form.Item>
 
             {feeType !== 'default' && (

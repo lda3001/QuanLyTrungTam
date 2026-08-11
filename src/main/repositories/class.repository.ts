@@ -3,8 +3,20 @@ import { AppError } from '../utils/errors'
 import { generateCode } from '../utils/code-generator'
 import { likeParam, normalizePage, safeSort, toPageResult } from '../utils/pagination'
 import type { PageResult, SelectOption } from '@shared/types/common'
-import type { ClassRoom, ClassRoomDetail, ClassSchedule, EnrollmentDetail, Student } from '@shared/types/entities'
-import type { ClassInput, ClassQuery, EnrollImportInput, EnrollInput, ImportResult } from '@shared/types/dto'
+import type {
+  ClassRoom,
+  ClassRoomDetail,
+  ClassSchedule,
+  EnrollmentDetail,
+  Student
+} from '@shared/types/entities'
+import type {
+  ClassInput,
+  ClassQuery,
+  EnrollImportInput,
+  EnrollInput,
+  ImportResult
+} from '@shared/types/dto'
 
 const SORTABLE: Record<string, string> = {
   code: 'cl.code',
@@ -45,7 +57,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(cl.code LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\' OR cl.room LIKE ? ESCAPE '\\')`)
+      where.push(
+        `(cl.code LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\' OR cl.room LIKE ? ESCAPE '\\')`
+      )
       params.push(kw, kw, kw)
     }
     if (query.status) {
@@ -178,11 +192,15 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
       // Không cho hạ sĩ số xuống dưới số học viên đã xếp lớp
       const enrolled = (
         this.sqlite
-          .prepare(`SELECT COUNT(*) AS c FROM enrollments WHERE class_id = ? AND deleted_at IS NULL`)
+          .prepare(
+            `SELECT COUNT(*) AS c FROM enrollments WHERE class_id = ? AND deleted_at IS NULL`
+          )
           .get(id) as { c: number }
       ).c
       if (input.maxStudents < enrolled) {
-        throw AppError.validation(`Lớp đang có ${enrolled} học viên, sĩ số tối đa không thể nhỏ hơn.`)
+        throw AppError.validation(
+          `Lớp đang có ${enrolled} học viên, sĩ số tối đa không thể nhỏ hơn.`
+        )
       }
 
       this.sqlite
@@ -216,7 +234,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
   private replaceSchedules(classId: number, schedules: ClassInput['schedules']): void {
     const now = Date.now()
     this.sqlite
-      .prepare(`UPDATE class_schedules SET deleted_at = ?, updated_at = ? WHERE class_id = ? AND deleted_at IS NULL`)
+      .prepare(
+        `UPDATE class_schedules SET deleted_at = ?, updated_at = ? WHERE class_id = ? AND deleted_at IS NULL`
+      )
       .run(now, now, classId)
 
     const insert = this.sqlite.prepare(
@@ -239,7 +259,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
       .get(id) as { c: number }
 
     if (row.c > 0) {
-      throw AppError.conflict(`Lớp đang có ${row.c} học viên. Hãy gỡ học viên khỏi lớp trước khi xoá.`)
+      throw AppError.conflict(
+        `Lớp đang có ${row.c} học viên. Hãy gỡ học viên khỏi lớp trước khi xoá.`
+      )
     }
   }
 
@@ -336,7 +358,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
 
       const currentCount = (
         this.sqlite
-          .prepare(`SELECT COUNT(*) AS c FROM enrollments WHERE class_id = ? AND deleted_at IS NULL`)
+          .prepare(
+            `SELECT COUNT(*) AS c FROM enrollments WHERE class_id = ? AND deleted_at IS NULL`
+          )
           .get(input.classId) as { c: number }
       ).c
 
@@ -403,7 +427,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
 
       let currentCount = (
         this.sqlite
-          .prepare(`SELECT COUNT(*) AS c FROM enrollments WHERE class_id = ? AND deleted_at IS NULL`)
+          .prepare(
+            `SELECT COUNT(*) AS c FROM enrollments WHERE class_id = ? AND deleted_at IS NULL`
+          )
           .get(input.classId) as { c: number }
       ).c
 
@@ -450,13 +476,16 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
           if (matches.length === 0 && phone) matches = findByPhone.all(phone) as Match[]
           if (matches.length === 0 && name) matches = findByName.all(name) as Match[]
 
-          if (matches.length === 0) throw new Error('Không tìm thấy học viên đang hoạt động khớp dữ liệu')
-          if (matches.length > 1) throw new Error('Khớp nhiều học viên — hãy điền Mã HV để chính xác')
+          if (matches.length === 0)
+            throw new Error('Không tìm thấy học viên đang hoạt động khớp dữ liệu')
+          if (matches.length > 1)
+            throw new Error('Khớp nhiều học viên — hãy điền Mã HV để chính xác')
 
           const student = matches[0]
           if (seen.has(student.id)) throw new Error('Học viên bị lặp trong file')
 
-          const state = stateStmt.get(input.classId, student.id) as { deletedAt: number | null } | undefined
+          const state = stateStmt.get(input.classId, student.id) as
+            { deletedAt: number | null } | undefined
           if (state && state.deletedAt === null) throw new Error('Học viên đã có trong lớp')
 
           if (currentCount + 1 > cls.maxStudents) {
@@ -488,6 +517,35 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
       })
 
       return result
+    })
+  }
+
+  updateEnrollmentDate(
+    enrollmentId: number,
+    enrollDate: string
+  ): { enrollment: EnrollmentDetail; oldDate: string; oldPayable: number } {
+    return this.transaction(() => {
+      const current = this.sqlite
+        .prepare(
+          `SELECT e.class_id AS classId, e.enroll_date AS enrollDate, et.payable
+           FROM enrollments e
+           JOIN enrollment_tuition et ON et.enrollment_id = e.id
+           WHERE e.id = ? AND e.deleted_at IS NULL`
+        )
+        .get(enrollmentId) as { classId: number; enrollDate: string; payable: number } | undefined
+      if (!current) throw AppError.notFound('Ghi danh lớp học')
+
+      this.sqlite
+        .prepare(
+          `UPDATE enrollments SET enroll_date = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`
+        )
+        .run(enrollDate, Date.now(), enrollmentId)
+
+      const enrollment = this.studentsOfClass(current.classId).find(
+        (item) => item.id === enrollmentId
+      )
+      if (!enrollment) throw AppError.notFound('Ghi danh lớp học')
+      return { enrollment, oldDate: current.enrollDate, oldPayable: current.payable }
     })
   }
 
