@@ -202,7 +202,10 @@ router.get(
 )
 router.get(
   '/classes/options',
-  action(P.CLASS_VIEW, () => classService.options())
+  action(P.CLASS_VIEW, (req) => {
+    const includeFinished = q(req).includeFinished
+    return classService.options(includeFinished === true || includeFinished === 'true')
+  })
 )
 router.get(
   '/classes/:id/students',
@@ -223,6 +226,10 @@ router.put(
   action(P.CLASS_UPDATE_ENROLLMENT, (req, p) =>
     classService.updateEnrollment({ ...b(req), id: id(p) })
   )
+)
+router.post(
+  '/classes/:id/continue',
+  action(P.CLASS_CREATE, (req, p) => classService.continueClass(id(p), b(req)))
 )
 router.post(
   '/classes/:id/unenroll',

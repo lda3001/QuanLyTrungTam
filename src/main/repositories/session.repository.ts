@@ -1,7 +1,12 @@
 import { BaseRepository } from './base.repository'
 import { AppError } from '../utils/errors'
 import type { ClassSession, ClassSessionDetail } from '@shared/types/entities'
-import type { GenerateSessionsInput, MoveSessionInput, SessionInput, SessionQuery } from '@shared/types/dto'
+import type {
+  GenerateSessionsInput,
+  MoveSessionInput,
+  SessionInput,
+  SessionQuery
+} from '@shared/types/dto'
 
 const SESSION_COLUMNS = `
   cs.id, cs.class_id AS classId, cs.session_date AS sessionDate,
@@ -13,7 +18,23 @@ const SESSION_COLUMNS = `
   (SELECT COUNT(*) FROM attendance a
     WHERE a.session_id = cs.id AND a.deleted_at IS NULL AND a.status IN ('present','late')) AS attendedCount,
   (SELECT COUNT(*) FROM enrollments e
-    WHERE e.class_id = cs.class_id AND e.deleted_at IS NULL AND e.status = 'studying') AS totalStudents`
+    WHERE e.class_id = cs.class_id
+      AND e.deleted_at IS NULL
+      AND (
+        e.status = 'studying'
+        OR (
+          cl.status = 'finished'
+          AND (
+            e.status = 'completed'
+            OR EXISTS (
+              SELECT 1 FROM attendance old_a
+              WHERE old_a.session_id = cs.id
+                AND old_a.student_id = e.student_id
+                AND old_a.deleted_at IS NULL
+            )
+          )
+        )
+      )) AS totalStudents`
 
 export class SessionRepository extends BaseRepository<ClassSession> {
   protected readonly tableName = 'class_sessions'
@@ -119,7 +140,13 @@ export class SessionRepository extends BaseRepository<ClassSession> {
     if (input.startTime >= input.endTime) {
       throw AppError.validation('Giờ kết thúc phải sau giờ bắt đầu.')
     }
-    this.assertNoRoomConflict(input.room ?? null, input.sessionDate, input.startTime, input.endTime, id)
+    this.assertNoRoomConflict(
+      input.room ?? null,
+      input.sessionDate,
+      input.startTime,
+      input.endTime,
+      id
+    )
 
     this.sqlite
       .prepare(
@@ -155,7 +182,13 @@ export class SessionRepository extends BaseRepository<ClassSession> {
     if (input.startTime >= input.endTime) {
       throw AppError.validation('Giờ kết thúc phải sau giờ bắt đầu.')
     }
-    this.assertNoRoomConflict(current.room, input.sessionDate, input.startTime, input.endTime, input.id)
+    this.assertNoRoomConflict(
+      current.room,
+      input.sessionDate,
+      input.startTime,
+      input.endTime,
+      input.id
+    )
 
     this.sqlite
       .prepare(
@@ -227,7 +260,14 @@ export class SessionRepository extends BaseRepository<ClassSession> {
            WHERE cl.id = ? AND cl.deleted_at IS NULL`
         )
         .get(input.classId) as
-        | { id: number; startDate: string | null; endDate: string | null; room: string | null; teacherId: number | null; totalSessions: number }
+        | {
+            id: number
+            startDate: string | null
+            endDate: string | null
+            room: string | null
+            teacherId: number | null
+            totalSessions: number
+          }
         | undefined
 
       if (!cls) throw AppError.notFound('Lớp học')
@@ -239,7 +279,12 @@ export class SessionRepository extends BaseRepository<ClassSession> {
            FROM class_schedules WHERE class_id = ? AND deleted_at IS NULL
            ORDER BY weekday`
         )
-        .all(input.classId) as { weekday: number; startTime: string; endTime: string; room: string | null }[]
+        .all(input.classId) as {
+        weekday: number
+        startTime: string
+        endTime: string
+        room: string | null
+      }[]
 
       if (schedules.length === 0) {
         throw AppError.validation('Lớp chưa khai báo khung giờ học hằng tuần.')

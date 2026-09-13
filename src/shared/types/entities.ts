@@ -75,6 +75,10 @@ export interface ClassRoom extends BaseEntity {
   startDate: string | null
   endDate: string | null
   maxStudents: number
+  /** Học phí được chốt cho lớp, độc lập với các lần sửa giá khóa học sau đó. */
+  tuitionFee: number
+  academicYear: string | null
+  previousClassId: number | null
   status: ClassStatus
   note: string | null
 }
@@ -82,10 +86,26 @@ export interface ClassRoom extends BaseEntity {
 /** Lớp học kèm dữ liệu đã join sẵn để hiển thị bảng, tránh N+1 query */
 export interface ClassRoomDetail extends ClassRoom {
   courseName: string
+  /** Alias dùng tại các màn hình cũ; giá trị chính là tuitionFee của lớp. */
   courseFee: number
+  /** Giá hiện hành trong danh mục khóa học, dùng làm gợi ý khi mở lớp mới. */
+  courseCurrentFee: number
   teacherName: string | null
   studentCount: number
   schedules: ClassSchedule[]
+  previousClassCode: string | null
+  previousClassName: string | null
+  continuations: ClassContinuationSummary[]
+}
+
+export interface ClassContinuationSummary {
+  id: number
+  code: string
+  name: string
+  academicYear: string | null
+  startDate: string | null
+  endDate: string | null
+  status: ClassStatus
 }
 
 /** Khung giờ lặp hằng tuần của một lớp — nguồn để sinh ra các buổi học */

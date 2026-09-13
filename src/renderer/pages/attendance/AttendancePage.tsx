@@ -1,9 +1,34 @@
-import { MuiDatePickerApi as DatePicker, MuiSelect as Select } from '@/components/common/MuiControls'
+import {
+  MuiDatePickerApi as DatePicker,
+  MuiSelect as Select
+} from '@/components/common/MuiControls'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Alert, Button, Card, Col, Empty, Flex, Input, Radio, Row, Segmented, Space, Statistic, Table, Tabs, Tag, Typography } from 'antd'
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Empty,
+  Flex,
+  Input,
+  Radio,
+  Row,
+  Segmented,
+  Space,
+  Statistic,
+  Table,
+  Tabs,
+  Tag,
+  Typography
+} from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { CheckSquareOutlined, DownloadOutlined, SaveOutlined, UploadOutlined } from '@ant-design/icons'
+import {
+  CheckSquareOutlined,
+  DownloadOutlined,
+  SaveOutlined,
+  UploadOutlined
+} from '@ant-design/icons'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/common/PageHeader'
 import { DataTable } from '@/components/common/DataTable'
@@ -16,7 +41,8 @@ import { dayjs, DATE_FORMAT, formatDate, ISO_DATE } from '@/utils/format'
 import {
   AttendanceStatus,
   AttendanceStatusColor,
-  AttendanceStatusLabel
+  AttendanceStatusLabel,
+  ClassStatus
 } from '@shared/constants/enums'
 import { PERMISSIONS } from '@shared/constants/permissions'
 import type { AttendanceDetail } from '@shared/types/entities'
@@ -43,20 +69,46 @@ export default function AttendancePage() {
   const { exportExcel, exporting } = useExport()
   const [searchParams] = useSearchParams()
 
-  const [classId, setClassId] = useState<number | undefined>(() => readPositiveId(searchParams.get('classId')))
-  const [sessionId, setSessionId] = useState<number | undefined>(() => readPositiveId(searchParams.get('sessionId')))
+  const [classId, setClassId] = useState<number | undefined>(() =>
+    readPositiveId(searchParams.get('classId'))
+  )
+  const [sessionId, setSessionId] = useState<number | undefined>(() =>
+    readPositiveId(searchParams.get('sessionId'))
+  )
   const [marks, setMarks] = useState<Record<number, AttendanceStatus>>({})
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [dirty, setDirty] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [multiExportOpen, setMultiExportOpen] = useState(false)
   const [multiImportOpen, setMultiImportOpen] = useState(false)
+  const today = dayjs().format(ISO_DATE)
 
   const { data: classOptions = [] } = useQuery({
-    queryKey: ['class-options'],
-    queryFn: () => classService.options(),
+    queryKey: ['class-options', 'attendance'],
+    queryFn: () => classService.options(true),
     staleTime: 5 * 60_000
   })
+
+  const { data: selectedClass } = useQuery({
+    queryKey: ['class', classId],
+    queryFn: () => classService.get(classId as number),
+    enabled: !!classId
+  })
+
+  const attendanceClassOptions = useMemo(() => {
+    if (!selectedClass || classOptions.some((option) => option.value === selectedClass.id)) {
+      return classOptions
+    }
+    return [
+      {
+        value: selectedClass.id,
+        label: `${selectedClass.code} — ${selectedClass.name} (Đã kết thúc)`
+      },
+      ...classOptions
+    ]
+  }, [classOptions, selectedClass])
+
+  const isReadOnly = selectedClass?.status === ClassStatus.FINISHED
 
   const { data: sessions = [], isFetching: loadingSessions } = useQuery({
     queryKey: ['class-sessions', classId],
@@ -81,6 +133,9 @@ export default function AttendancePage() {
    * Hằng số EMPTY_ROWS ở cấp module giữ nguyên một reference duy nhất.
    */
   const rows = attendanceRows ?? EMPTY_ROWS
+  const selectedSession = sessions.find((session) => session.id === sessionId)
+  const isFutureSession = selectedSession !== undefined && selectedSession.sessionDate > today
+  const isAttendanceLocked = isReadOnly || isFutureSession
 
   // Nạp trạng thái đã lưu (hoặc mặc định "có mặt") mỗi khi đổi buổi
   useEffect(() => {
@@ -94,6 +149,13 @@ export default function AttendancePage() {
     setNotes(nextNotes)
     setDirty(false)
   }, [rows])
+
+  useEffect(() => {
+    if (!isAttendanceLocked) return
+    setDirty(false)
+    setImportOpen(false)
+    setMultiImportOpen(false)
+  }, [isAttendanceLocked])
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -121,8 +183,6 @@ export default function AttendancePage() {
     setMarks(next)
     setDirty(true)
   }
-
-  const selectedSession = sessions.find((s) => s.id === sessionId)
 
   /**
    * Xuất bảng điểm danh của buổi hiện tại. File này cũng dùng làm MẪU để nhập
@@ -171,6 +231,7 @@ export default function AttendancePage() {
       width: 420,
       render: (_, row) => (
         <Radio.Group
+          disabled={isAttendanceLocked}
           value={marks[row.studentId] ?? AttendanceStatus.PRESENT}
           onChange={(e) => {
             setMarks((prev) => ({ ...prev, [row.studentId]: e.target.value }))
@@ -179,7 +240,10 @@ export default function AttendancePage() {
           optionType="button"
           buttonStyle="solid"
           size="small"
-          options={Object.entries(AttendanceStatusLabel).map(([value, label]) => ({ value, label }))}
+          options={Object.entries(AttendanceStatusLabel).map(([value, label]) => ({
+            value,
+            label
+          }))}
         />
       )
     },
@@ -188,6 +252,7 @@ export default function AttendancePage() {
       key: 'note',
       render: (_, row) => (
         <Input
+          disabled={isAttendanceLocked}
           size="small"
           placeholder="Lý do nghỉ, đi muộn..."
           value={notes[row.studentId] ?? ''}
@@ -205,7 +270,13 @@ export default function AttendancePage() {
     <>
       <PageHeader
         title="Điểm danh"
-        subtitle="Chấm chuyên cần theo từng buổi học"
+        subtitle={
+          isReadOnly
+            ? 'Xem lại dữ liệu chuyên cần của lớp đã kết thúc'
+            : isFutureSession
+              ? 'Buổi học chưa đến ngày — dữ liệu đang ở chế độ chỉ xem'
+              : 'Chấm chuyên cần theo từng buổi học'
+        }
         breadcrumbs={[{ title: 'Vận hành' }, { title: 'Điểm danh' }]}
         icon={<CheckSquareOutlined style={{ fontSize: 26, color: '#52c41a' }} />}
         extra={
@@ -213,7 +284,7 @@ export default function AttendancePage() {
             <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
               <Button
                 icon={<UploadOutlined />}
-                disabled={!classId}
+                disabled={!classId || isReadOnly}
                 onClick={() => setMultiImportOpen(true)}
               >
                 Nhập nhiều buổi
@@ -237,13 +308,16 @@ export default function AttendancePage() {
         items={[
           {
             key: 'mark',
-            label: 'Chấm điểm danh',
+            label: isAttendanceLocked ? 'Xem điểm danh' : 'Chấm điểm danh',
             children: (
               <>
                 <Card style={{ marginBottom: 16 }}>
                   <Row gutter={[16, 16]} align="middle">
                     <Col xs={24} md={8}>
-                      <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 6 }}>
+                      <Typography.Text
+                        type="secondary"
+                        style={{ display: 'block', marginBottom: 6 }}
+                      >
                         Lớp học
                       </Typography.Text>
                       <Select
@@ -254,16 +328,21 @@ export default function AttendancePage() {
                           setClassId(v)
                           setSessionId(undefined)
                         }}
-                        options={classOptions}
+                        options={attendanceClassOptions}
                         showSearch
                         filterOption={(input, option) =>
-                          String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                          String(option?.label ?? '')
+                            .toLowerCase()
+                            .includes(input.toLowerCase())
                         }
                       />
                     </Col>
 
                     <Col xs={24} md={10}>
-                      <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 6 }}>
+                      <Typography.Text
+                        type="secondary"
+                        style={{ display: 'block', marginBottom: 6 }}
+                      >
                         Buổi học
                       </Typography.Text>
                       <Select
@@ -276,7 +355,11 @@ export default function AttendancePage() {
                         options={sessions.map((s) => ({
                           value: s.id,
                           label: `${formatDate(s.sessionDate)} · ${s.startTime}–${s.endTime}${
-                            s.status === 'done' ? ' (đã điểm danh)' : ''
+                            s.status === 'done'
+                              ? ' (đã điểm danh)'
+                              : s.sessionDate > today
+                                ? ' (chưa đến ngày)'
+                                : ''
                           }`
                         }))}
                         // Mặc định đưa buổi gần nhất lên đầu để đỡ phải cuộn
@@ -291,7 +374,7 @@ export default function AttendancePage() {
                           icon={<SaveOutlined />}
                           block
                           size="large"
-                          disabled={!sessionId || rows.length === 0 || !dirty}
+                          disabled={!sessionId || rows.length === 0 || !dirty || isAttendanceLocked}
                           loading={saveMutation.isPending}
                           onClick={() => saveMutation.mutate()}
                           style={{ marginTop: 22 }}
@@ -302,6 +385,26 @@ export default function AttendancePage() {
                     </Col>
                   </Row>
                 </Card>
+
+                {isReadOnly && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    message="Lớp học đã kết thúc"
+                    description="Danh sách điểm danh cũ được giữ nguyên ở chế độ chỉ xem. Bạn vẫn có thể xuất dữ liệu Excel."
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
+
+                {isFutureSession && selectedSession && !isReadOnly && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message="Chưa đến ngày học"
+                    description={`Buổi học diễn ra ngày ${formatDate(selectedSession.sessionDate)}. Bạn chỉ có thể điểm danh từ đúng ngày học; hiện tại vẫn có thể xem danh sách và xuất Excel.`}
+                    style={{ marginBottom: 16 }}
+                  />
+                )}
 
                 {!sessionId ? (
                   <Card>
@@ -320,7 +423,11 @@ export default function AttendancePage() {
                             />
                           </Col>
                           <Col xs={12} md={6}>
-                            <Statistic title="Đi muộn" value={summary.late} valueStyle={{ color: '#fa8c16' }} />
+                            <Statistic
+                              title="Đi muộn"
+                              value={summary.late}
+                              valueStyle={{ color: '#fa8c16' }}
+                            />
                           </Col>
                           <Col xs={12} md={6}>
                             <Statistic
@@ -340,7 +447,7 @@ export default function AttendancePage() {
                       </Card>
                     )}
 
-                    {dirty && (
+                    {dirty && !isAttendanceLocked && (
                       <Alert
                         type="warning"
                         showIcon
@@ -367,31 +474,35 @@ export default function AttendancePage() {
                       }
                       extra={
                         <Space wrap>
-                          <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
-                            <Space>
-                              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-                                Chấm nhanh:
-                              </Typography.Text>
-                              <Segmented
+                          {!isAttendanceLocked && (
+                            <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
+                              <Space>
+                                <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                                  Chấm nhanh:
+                                </Typography.Text>
+                                <Segmented
+                                  size="small"
+                                  options={[
+                                    { label: 'Tất cả có mặt', value: AttendanceStatus.PRESENT },
+                                    { label: 'Tất cả vắng', value: AttendanceStatus.ABSENT }
+                                  ]}
+                                  onChange={(v) => setAll(v as AttendanceStatus)}
+                                />
+                              </Space>
+                            </Can>
+                          )}
+                          {!isAttendanceLocked && (
+                            <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
+                              <Button
                                 size="small"
-                                options={[
-                                  { label: 'Tất cả có mặt', value: AttendanceStatus.PRESENT },
-                                  { label: 'Tất cả vắng', value: AttendanceStatus.ABSENT }
-                                ]}
-                                onChange={(v) => setAll(v as AttendanceStatus)}
-                              />
-                            </Space>
-                          </Can>
-                          <Can permission={PERMISSIONS.ATTENDANCE_MARK}>
-                            <Button
-                              size="small"
-                              icon={<UploadOutlined />}
-                              onClick={() => setImportOpen(true)}
-                              disabled={rows.length === 0}
-                            >
-                              Nhập Excel
-                            </Button>
-                          </Can>
+                                icon={<UploadOutlined />}
+                                onClick={() => setImportOpen(true)}
+                                disabled={rows.length === 0}
+                              >
+                                Nhập Excel
+                              </Button>
+                            </Can>
+                          )}
                           <Can permission={PERMISSIONS.ATTENDANCE_VIEW}>
                             <Button
                               size="small"
@@ -433,7 +544,7 @@ export default function AttendancePage() {
         ]}
       />
 
-      {sessionId && selectedSession && (
+      {sessionId && selectedSession && !isAttendanceLocked && (
         <AttendanceImportModal
           open={importOpen}
           sessionId={sessionId}
@@ -451,16 +562,16 @@ export default function AttendancePage() {
         <AttendanceMultiExportModal
           open={multiExportOpen}
           classId={classId}
-          className={String(classOptions.find((c) => c.value === classId)?.label ?? '')}
+          className={String(attendanceClassOptions.find((c) => c.value === classId)?.label ?? '')}
           onClose={() => setMultiExportOpen(false)}
         />
       )}
 
-      {classId && (
+      {classId && !isReadOnly && (
         <AttendanceMultiImportModal
           open={multiImportOpen}
           classId={classId}
-          className={String(classOptions.find((c) => c.value === classId)?.label ?? '')}
+          className={String(attendanceClassOptions.find((c) => c.value === classId)?.label ?? '')}
           onClose={() => setMultiImportOpen(false)}
         />
       )}
@@ -477,7 +588,12 @@ function readPositiveId(value: string | null): number | undefined {
 
 function AttendanceHistoryTab() {
   const { exportExcel, exporting } = useExport()
-  const table = useTableQuery<{ classId?: number; status?: AttendanceStatus; from?: string; to?: string }>({
+  const table = useTableQuery<{
+    classId?: number
+    status?: AttendanceStatus
+    from?: string
+    to?: string
+  }>({
     defaultPageSize: 20,
     defaultFilters: {
       from: dayjs().subtract(1, 'month').format(ISO_DATE),
@@ -492,8 +608,8 @@ function AttendanceHistoryTab() {
   })
 
   const { data: classOptions = [] } = useQuery({
-    queryKey: ['class-options'],
-    queryFn: () => classService.options(),
+    queryKey: ['class-options', 'attendance'],
+    queryFn: () => classService.options(true),
     staleTime: 5 * 60_000
   })
 
@@ -605,7 +721,9 @@ function AttendanceHistoryTab() {
             options={classOptions}
             showSearch
             filterOption={(input, option) =>
-              String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+              String(option?.label ?? '')
+                .toLowerCase()
+                .includes(input.toLowerCase())
             }
           />
           <Select
@@ -614,7 +732,10 @@ function AttendanceHistoryTab() {
             style={{ width: 170 }}
             value={table.filters.status}
             onChange={(status) => table.setFilters({ status })}
-            options={Object.entries(AttendanceStatusLabel).map(([value, label]) => ({ value, label }))}
+            options={Object.entries(AttendanceStatusLabel).map(([value, label]) => ({
+              value,
+              label
+            }))}
           />
           <DatePicker.RangePicker
             format={DATE_FORMAT}

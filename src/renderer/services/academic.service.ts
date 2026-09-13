@@ -20,6 +20,7 @@ import type {
   MarkMultiAttendanceInput,
   ClassInput,
   ClassQuery,
+  ContinueClassInput,
   CourseInput,
   CourseQuery,
   EnrollImportInput,
@@ -81,8 +82,11 @@ export const classService = {
   create: (i: ClassInput): Promise<ClassRoomDetail> => call(api().classes.create(i)),
   update: (id: number, i: ClassInput): Promise<ClassRoomDetail> =>
     call(api().classes.update(id, i)),
+  continueClass: (id: number, i: ContinueClassInput): Promise<ClassRoomDetail> =>
+    call(api().classes.continueClass(id, i)),
   remove: (id: number): Promise<boolean> => call(api().classes.remove(id)),
-  options: (): Promise<SelectOption[]> => call(api().classes.options()),
+  options: (includeFinished = false): Promise<SelectOption[]> =>
+    call(api().classes.options(includeFinished)),
   students: (id: number): Promise<EnrollmentDetail[]> => call(api().classes.students(id)),
   availableStudents: (id: number, keyword?: string): Promise<Student[]> =>
     call(api().classes.availableStudents(id, keyword)),

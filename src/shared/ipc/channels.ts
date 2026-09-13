@@ -48,6 +48,7 @@ export const IPC = {
   CLASS_GET: 'class:get',
   CLASS_CREATE: 'class:create',
   CLASS_UPDATE: 'class:update',
+  CLASS_CONTINUE: 'class:continue',
   CLASS_DELETE: 'class:delete',
   CLASS_OPTIONS: 'class:options',
   CLASS_STUDENTS: 'class:students',

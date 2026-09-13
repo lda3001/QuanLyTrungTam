@@ -150,9 +150,32 @@ export interface ClassInput {
   startDate?: string | null
   endDate?: string | null
   maxStudents: number
+  /** Bỏ trống khi tạo để lấy giá hiện tại của khóa học. */
+  tuitionFee?: number
+  academicYear?: string | null
   status: ClassStatus
   note?: string | null
   schedules: ClassScheduleInput[]
+}
+
+/** Tạo một đợt/lớp kế tiếp nhưng giữ lịch sử lớp cũ nguyên vẹn. */
+export interface ContinueClassInput {
+  code?: string
+  name: string
+  academicYear: string
+  teacherId?: number | null
+  room?: string | null
+  startDate: string
+  endDate: string
+  maxStudents: number
+  /** Học phí chốt cho lớp mới và các ghi danh chuyển tiếp. */
+  tuitionFee: number
+  /** Giữ mức giảm giá của ghi danh cũ; các điều chỉnh khác luôn bắt đầu lại. */
+  carryDiscounts?: boolean
+  note?: string | null
+  schedules: ClassScheduleInput[]
+  transferStudentIds: number[]
+  finishSourceClass?: boolean
 }
 
 export interface EnrollInput {

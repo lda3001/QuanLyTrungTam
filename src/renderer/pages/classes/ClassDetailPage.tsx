@@ -21,20 +21,23 @@ import {
   ArrowLeftOutlined,
   CalendarOutlined,
   DeleteOutlined,
-  EyeOutlined,
   EditOutlined,
   FileExcelOutlined,
+  ForkOutlined,
   ThunderboltOutlined,
   UserAddOutlined,
   UsergroupAddOutlined
 } from '@ant-design/icons'
+import type { ColumnsType } from 'antd/es/table'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/common/PageHeader'
 import { ResizableTable } from '@/components/common/ResizableTable'
 import { Can, PageSkeleton, SearchInput, StatusTag } from '@/components/common'
 import { EnrollModal } from './EnrollModal'
 import { EnrollImportModal } from './EnrollImportModal'
+import { ContinueClassModal } from './ContinueClassModal'
 import { useNotify } from '@/hooks/useNotify'
+import { usePermission } from '@/hooks/usePermission'
 import { classService, scheduleService } from '@/services/academic.service'
 import { DATE_FORMAT, dayjs, formatCurrency, formatDate, ISO_DATE } from '@/utils/format'
 import {
@@ -57,11 +60,13 @@ export default function ClassDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const notify = useNotify()
+  const { can } = usePermission()
   const queryClient = useQueryClient()
   const classId = Number(id)
 
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [enrollImportOpen, setEnrollImportOpen] = useState(false)
+  const [continueOpen, setContinueOpen] = useState(false)
   const [studentKeyword, setStudentKeyword] = useState('')
   const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentDetail | null>(null)
   const [editedEnrollDate, setEditedEnrollDate] = useState('')
@@ -180,9 +185,7 @@ export default function ClassDetailPage() {
       width: 200,
       sorter: (left: EnrollmentDetail, right: EnrollmentDetail) =>
         compareStudentName(left.studentName, right.studentName),
-      render: (v: string, row: EnrollmentDetail) => (
-        <a onClick={() => navigate(`/students/${row.studentId}`)}>{v}</a>
-      )
+      render: (v: string) => v
     },
     {
       title: 'Điện thoại',
@@ -250,7 +253,8 @@ export default function ClassDetailPage() {
               type="text"
               icon={<EditOutlined />}
               title="Sửa ngày ghi danh"
-              onClick={() => {
+              onClick={(event) => {
+                event.stopPropagation()
                 setEditingEnrollment(row)
                 setEditedEnrollDate(row.enrollDate)
               }}
@@ -261,13 +265,14 @@ export default function ClassDetailPage() {
               type="text"
               danger
               icon={<DeleteOutlined />}
-              onClick={() =>
+              onClick={(event) => {
+                event.stopPropagation()
                 notify.confirmDelete({
                   title: 'Gỡ khỏi lớp',
                   content: `Gỡ học viên "${row.studentName}" khỏi lớp này?`,
                   onOk: () => unenrollMutation.mutateAsync(row.id)
                 })
-              }
+              }}
             />
           </Can>
         </Space>
@@ -275,7 +280,19 @@ export default function ClassDetailPage() {
     }
   ]
 
-  const sessionColumns = [
+  const canViewStudent = can(PERMISSIONS.STUDENT_VIEW)
+  const openStudent = (studentId: number): void => {
+    if (!canViewStudent) return
+    navigate(`/students/${studentId}`)
+  }
+
+  const canViewAttendance = can(PERMISSIONS.ATTENDANCE_VIEW)
+  const openAttendance = (sessionId: number): void => {
+    if (!canViewAttendance) return
+    navigate(`/attendance?classId=${classId}&sessionId=${sessionId}`)
+  }
+
+  const sessionColumns: ColumnsType<ClassSessionDetail> = [
     {
       title: 'Ngày học',
       dataIndex: 'sessionDate',
@@ -312,24 +329,6 @@ export default function ClassDetailPage() {
           {SessionStatusLabel[v]}
         </Tag>
       )
-    },
-    {
-      title: '',
-      key: 'viewAttendance',
-      width: 130,
-      align: 'center' as const,
-      render: (_: unknown, row: ClassSessionDetail) => (
-        <Can permission={PERMISSIONS.ATTENDANCE_VIEW}>
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/attendance?classId=${classId}&sessionId=${row.id}`)}
-          >
-            Điểm danh
-          </Button>
-        </Can>
-      )
     }
   ]
 
@@ -348,6 +347,11 @@ export default function ClassDetailPage() {
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/classes')}>
               Quay lại
             </Button>
+            <Can permission={PERMISSIONS.CLASS_CREATE}>
+              <Button icon={<ForkOutlined />} onClick={() => setContinueOpen(true)}>
+                Mở lớp tiếp tục
+              </Button>
+            </Can>
             <Can permission={PERMISSIONS.SCHEDULE_MANAGE}>
               <Button
                 icon={<ThunderboltOutlined />}
@@ -394,6 +398,32 @@ export default function ClassDetailPage() {
             <Descriptions column={1} size="small" bordered>
               <Descriptions.Item label="Mã lớp">{classroom.code}</Descriptions.Item>
               <Descriptions.Item label="Khoá học">{classroom.courseName}</Descriptions.Item>
+              <Descriptions.Item label="Năm học">
+                {classroom.academicYear ?? 'Chưa thiết lập'}
+              </Descriptions.Item>
+              {classroom.previousClassId && (
+                <Descriptions.Item label="Tiếp tục từ lớp">
+                  <a onClick={() => navigate(`/classes/${classroom.previousClassId}`)}>
+                    {classroom.previousClassCode} — {classroom.previousClassName}
+                  </a>
+                </Descriptions.Item>
+              )}
+              {classroom.continuations.length > 0 && (
+                <Descriptions.Item label="Lớp kế tiếp">
+                  <Space size={4} wrap>
+                    {classroom.continuations.map((nextClass) => (
+                      <Tag
+                        key={nextClass.id}
+                        color="blue"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/classes/${nextClass.id}`)}
+                      >
+                        {nextClass.code} · {nextClass.academicYear ?? 'Chưa có năm học'}
+                      </Tag>
+                    ))}
+                  </Space>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Giáo viên">
                 {classroom.teacherName ?? 'Chưa phân công'}
               </Descriptions.Item>
@@ -404,7 +434,7 @@ export default function ClassDetailPage() {
               <Descriptions.Item label="Kết thúc">
                 {formatDate(classroom.endDate)}
               </Descriptions.Item>
-              <Descriptions.Item label="Học phí">
+              <Descriptions.Item label="Học phí lớp">
                 {formatCurrency(classroom.courseFee)}
               </Descriptions.Item>
               <Descriptions.Item label="Trạng thái">
@@ -484,6 +514,28 @@ export default function ClassDetailPage() {
                         columns={studentColumns}
                         dataSource={filteredStudents}
                         loading={studentsQuery.isLoading}
+                        onRow={(row) => ({
+                          onClick: canViewStudent
+                            ? (event) => {
+                                const target = event.target as HTMLElement
+                                if (target.closest('button, a, input, select, textarea')) return
+                                openStudent(row.studentId)
+                              }
+                            : undefined,
+                          onKeyDown: canViewStudent
+                            ? (event) => {
+                                if (event.currentTarget !== event.target) return
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault()
+                                  openStudent(row.studentId)
+                                }
+                              }
+                            : undefined,
+                          tabIndex: canViewStudent ? 0 : undefined,
+                          role: canViewStudent ? 'link' : undefined,
+                          title: canViewStudent ? 'Mở hồ sơ học viên' : undefined,
+                          style: canViewStudent ? { cursor: 'pointer' } : undefined
+                        })}
                         pagination={{ pageSize: 15, size: 'small' }}
                         scroll={{ x: 'max-content' }}
                         locale={{
@@ -509,6 +561,21 @@ export default function ClassDetailPage() {
                       columns={sessionColumns}
                       dataSource={sessions}
                       loading={sessionsQuery.isLoading}
+                      onRow={(row) => ({
+                        onClick: canViewAttendance ? () => openAttendance(row.id) : undefined,
+                        onKeyDown: canViewAttendance
+                          ? (event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                openAttendance(row.id)
+                              }
+                            }
+                          : undefined,
+                        tabIndex: canViewAttendance ? 0 : undefined,
+                        role: canViewAttendance ? 'link' : undefined,
+                        title: canViewAttendance ? 'Mở điểm danh buổi học' : undefined,
+                        style: canViewAttendance ? { cursor: 'pointer' } : undefined
+                      })}
                       pagination={{ pageSize: 15, size: 'small' }}
                       scroll={{ x: 'max-content' }}
                       locale={{
@@ -542,6 +609,17 @@ export default function ClassDetailPage() {
         className={classroom.name}
         remainingSlots={remainingSlots}
         onClose={() => setEnrollImportOpen(false)}
+      />
+
+      <ContinueClassModal
+        open={continueOpen}
+        source={classroom}
+        students={students}
+        onClose={() => setContinueOpen(false)}
+        onCreated={(nextClassId) => {
+          setContinueOpen(false)
+          navigate(`/classes/${nextClassId}`)
+        }}
       />
 
       <Modal

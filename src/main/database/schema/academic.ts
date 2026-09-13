@@ -1,4 +1,5 @@
 import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
 import { timestamps } from './base'
 import { teachers } from './people'
 
@@ -39,6 +40,12 @@ export const classes = sqliteTable(
     startDate: text('start_date'),
     endDate: text('end_date'),
     maxStudents: integer('max_students').notNull().default(30),
+    /** Học phí chốt riêng cho lần mở lớp này; không đổi khi sửa giá khóa học. */
+    tuitionFee: integer('tuition_fee'),
+    /** Năm học/giai đoạn vận hành, ví dụ 2026–2027. */
+    academicYear: text('academic_year'),
+    /** Lớp liền trước trong chuỗi học tiếp qua các năm. */
+    previousClassId: integer('previous_class_id').references((): AnySQLiteColumn => classes.id),
     status: text('status').notNull().default('planned'),
     note: text('note'),
     ...timestamps
@@ -48,6 +55,8 @@ export const classes = sqliteTable(
     courseIdx: index('classes_course_idx').on(t.courseId),
     teacherIdx: index('classes_teacher_idx').on(t.teacherId),
     statusIdx: index('classes_status_idx').on(t.status),
+    academicYearIdx: index('classes_academic_year_idx').on(t.academicYear),
+    previousClassIdx: index('classes_previous_class_idx').on(t.previousClassId),
     deletedIdx: index('classes_deleted_idx').on(t.deletedAt)
   })
 )

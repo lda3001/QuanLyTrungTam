@@ -20,7 +20,12 @@ import { useTableQuery } from '@/hooks/useTableQuery'
 import { useNotify } from '@/hooks/useNotify'
 import { classService, courseService, teacherService } from '@/services/academic.service'
 import { formatCurrency, formatDate } from '@/utils/format'
-import { ClassStatus, ClassStatusColor, ClassStatusLabel, WeekdayLabel } from '@shared/constants/enums'
+import {
+  ClassStatus,
+  ClassStatusColor,
+  ClassStatusLabel,
+  WeekdayLabel
+} from '@shared/constants/enums'
 import { PERMISSIONS } from '@shared/constants/permissions'
 import type { ClassRoomDetail } from '@shared/types/entities'
 
@@ -90,7 +95,8 @@ export default function ClassesPage() {
         title: 'Giáo viên',
         dataIndex: 'teacherName',
         width: 170,
-        render: (v: string | null) => v ?? <Typography.Text type="secondary">Chưa phân công</Typography.Text>
+        render: (v: string | null) =>
+          v ?? <Typography.Text type="secondary">Chưa phân công</Typography.Text>
       },
       {
         title: 'Lịch học',
@@ -102,7 +108,10 @@ export default function ClassesPage() {
           ) : (
             <Space size={4} wrap>
               {row.schedules.map((s) => (
-                <Tooltip key={s.id} title={`${s.startTime} – ${s.endTime}${s.room ? ` · ${s.room}` : ''}`}>
+                <Tooltip
+                  key={s.id}
+                  title={`${s.startTime} – ${s.endTime}${s.room ? ` · ${s.room}` : ''}`}
+                >
                   <Tag style={{ margin: 0 }}>{WeekdayLabel[s.weekday]}</Tag>
                 </Tooltip>
               ))}
@@ -120,7 +129,8 @@ export default function ClassesPage() {
         key: 'students',
         width: 150,
         render: (_, row) => {
-          const percent = row.maxStudents > 0 ? Math.round((row.studentCount / row.maxStudents) * 100) : 0
+          const percent =
+            row.maxStudents > 0 ? Math.round((row.studentCount / row.maxStudents) * 100) : 0
           return (
             <div>
               <Typography.Text style={{ fontSize: 13 }}>
@@ -138,7 +148,7 @@ export default function ClassesPage() {
         }
       },
       {
-        title: 'Học phí',
+        title: 'Học phí lớp',
         dataIndex: 'courseFee',
         width: 140,
         align: 'right',
@@ -156,10 +166,18 @@ export default function ClassesPage() {
         )
       },
       {
+        title: 'Năm học',
+        dataIndex: 'academicYear',
+        width: 120,
+        render: (value: string | null) => value ?? '—'
+      },
+      {
         title: 'Trạng thái',
         dataIndex: 'status',
         width: 140,
-        render: (v: ClassStatus) => <StatusTag value={v} labels={ClassStatusLabel} colors={ClassStatusColor} />
+        render: (v: ClassStatus) => (
+          <StatusTag value={v} labels={ClassStatusLabel} colors={ClassStatusColor} />
+        )
       },
       {
         title: '',
@@ -252,7 +270,9 @@ export default function ClassesPage() {
               options={courseOptions}
               showSearch
               filterOption={(input, option) =>
-                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                String(option?.label ?? '')
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
             />
             <Select
@@ -264,7 +284,9 @@ export default function ClassesPage() {
               options={teacherOptions}
               showSearch
               filterOption={(input, option) =>
-                String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                String(option?.label ?? '')
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
               }
             />
             <Select

@@ -28,6 +28,7 @@ import type {
   ChangePasswordInput,
   ClassInput,
   ClassQuery,
+  ContinueClassInput,
   CourseInput,
   CourseQuery,
   DashboardData,
@@ -118,8 +119,9 @@ export interface AppApi {
     get(id: number): R<ClassRoomDetail>
     create(input: ClassInput): R<ClassRoomDetail>
     update(id: number, input: ClassInput): R<ClassRoomDetail>
+    continueClass(sourceClassId: number, input: ContinueClassInput): R<ClassRoomDetail>
     remove(id: number): R<boolean>
-    options(): R<SelectOption[]>
+    options(includeFinished?: boolean): R<SelectOption[]>
     students(classId: number): R<EnrollmentDetail[]>
     availableStudents(classId: number, keyword?: string): R<Student[]>
     enroll(input: EnrollInput): R<number>

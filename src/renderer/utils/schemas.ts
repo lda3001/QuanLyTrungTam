@@ -155,7 +155,13 @@ export const classSchema = z
     room: z.string().trim().max(50).nullable().optional(),
     startDate: isoDate,
     endDate: isoDate,
-    maxStudents: z.number().min(1, 'Sĩ số tối thiểu 1').max(500),
+      maxStudents: z.number().min(1, 'Sĩ số tối thiểu 1').max(500),
+      academicYear: z
+        .string()
+        .trim()
+        .regex(/^$|^\d{4}\s*[–-]\s*\d{4}$/, 'Năm học phải có dạng 2026–2027')
+        .nullable()
+        .optional(),
     status: z.nativeEnum(ClassStatus),
     note: z.string().trim().max(500).nullable().optional(),
     schedules: z.array(classScheduleSchema).min(1, 'Thêm ít nhất một khung giờ học')

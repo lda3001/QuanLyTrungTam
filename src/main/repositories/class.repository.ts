@@ -5,6 +5,7 @@ import { likeParam, normalizePage, safeSort, toPageResult } from '../utils/pagin
 import type { PageResult, SelectOption } from '@shared/types/common'
 import type {
   ClassRoom,
+  ClassContinuationSummary,
   ClassRoomDetail,
   ClassSchedule,
   EnrollmentDetail,
@@ -13,6 +14,7 @@ import type {
 import type {
   ClassInput,
   ClassQuery,
+  ContinueClassInput,
   EnrollImportInput,
   EnrollInput,
   ImportResult
@@ -36,10 +38,14 @@ const SORTABLE: Record<string, string> = {
 const CLASS_COLUMNS = `
   cl.id, cl.code, cl.name, cl.course_id AS courseId, cl.teacher_id AS teacherId,
   cl.room, cl.start_date AS startDate, cl.end_date AS endDate,
-  cl.max_students AS maxStudents, cl.status, cl.note,
+  cl.max_students AS maxStudents, COALESCE(cl.tuition_fee, co.tuition_fee) AS tuitionFee,
+  cl.academic_year AS academicYear,
+  cl.previous_class_id AS previousClassId, cl.status, cl.note,
   cl.created_at AS createdAt, cl.updated_at AS updatedAt, cl.deleted_at AS deletedAt,
-  co.name AS courseName, co.tuition_fee AS courseFee,
+  co.name AS courseName, COALESCE(cl.tuition_fee, co.tuition_fee) AS courseFee,
+  co.tuition_fee AS courseCurrentFee,
   t.full_name AS teacherName,
+  pcl.code AS previousClassCode, pcl.name AS previousClassName,
   (SELECT COUNT(*) FROM enrollments e
     WHERE e.class_id = cl.id AND e.deleted_at IS NULL) AS studentCount`
 
@@ -48,6 +54,7 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
   protected readonly selectColumns = `
     id, code, name, course_id AS courseId, teacher_id AS teacherId, room,
     start_date AS startDate, end_date AS endDate, max_students AS maxStudents,
+    tuition_fee AS tuitionFee, academic_year AS academicYear, previous_class_id AS previousClassId,
     status, note, created_at AS createdAt, updated_at AS updatedAt, deleted_at AS deletedAt`
 
   list(query: ClassQuery): PageResult<ClassRoomDetail> {
@@ -90,17 +97,22 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
          FROM classes cl
          JOIN courses co ON co.id = cl.course_id
          LEFT JOIN teachers t ON t.id = cl.teacher_id
+         LEFT JOIN classes pcl ON pcl.id = cl.previous_class_id
          WHERE ${whereSql}
          ORDER BY ${orderBy}
          LIMIT ? OFFSET ?`
       )
-      .all(...(params as never[]), p.limit, p.offset) as Omit<ClassRoomDetail, 'schedules'>[]
+      .all(...(params as never[]), p.limit, p.offset) as Omit<
+      ClassRoomDetail,
+      'schedules' | 'continuations'
+    >[]
 
     // Nạp khung giờ cho toàn bộ lớp trong trang bằng MỘT truy vấn (tránh N+1)
     const schedulesByClass = this.schedulesFor(rows.map((r) => r.id))
     const items: ClassRoomDetail[] = rows.map((r) => ({
       ...r,
-      schedules: schedulesByClass.get(r.id) ?? []
+      schedules: schedulesByClass.get(r.id) ?? [],
+      continuations: []
     }))
 
     return toPageResult(items, total, p)
@@ -113,12 +125,37 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
          FROM classes cl
          JOIN courses co ON co.id = cl.course_id
          LEFT JOIN teachers t ON t.id = cl.teacher_id
+         LEFT JOIN classes pcl ON pcl.id = cl.previous_class_id
          WHERE cl.id = ? AND cl.deleted_at IS NULL`
       )
-      .get(id) as Omit<ClassRoomDetail, 'schedules'> | undefined
+      .get(id) as Omit<ClassRoomDetail, 'schedules' | 'continuations'> | undefined
 
     if (!row) throw AppError.notFound('Lớp học')
-    return { ...row, schedules: this.schedulesFor([id]).get(id) ?? [] }
+    return {
+      ...row,
+      schedules: this.schedulesFor([id]).get(id) ?? [],
+      continuations: this.continuationsOf(id)
+    }
+  }
+
+  private continuationsOf(classId: number): ClassContinuationSummary[] {
+    return this.sqlite
+      .prepare(
+        `SELECT id, code, name, academic_year AS academicYear,
+                start_date AS startDate, end_date AS endDate, status
+         FROM classes
+         WHERE previous_class_id = ? AND deleted_at IS NULL
+         ORDER BY start_date, created_at`
+      )
+      .all(classId) as ClassContinuationSummary[]
+  }
+
+  private courseFee(courseId: number): number {
+    const row = this.sqlite
+      .prepare(`SELECT tuition_fee AS tuitionFee FROM courses WHERE id = ? AND deleted_at IS NULL`)
+      .get(courseId) as { tuitionFee: number } | undefined
+    if (!row) throw AppError.validation('Khoá học không tồn tại.')
+    return row.tuitionFee
   }
 
   private schedulesFor(classIds: number[]): Map<number, ClassSchedule[]> {
@@ -157,8 +194,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
         .prepare(
           `INSERT INTO classes
             (code, name, course_id, teacher_id, room, start_date, end_date,
-             max_students, status, note, created_at, updated_at, deleted_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`
+             max_students, tuition_fee, academic_year, previous_class_id, status, note,
+             created_at, updated_at, deleted_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)`
         )
         .run(
           code,
@@ -169,6 +207,9 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
           input.startDate ?? null,
           input.endDate ?? null,
           Math.max(1, Math.round(input.maxStudents || 30)),
+          Math.max(0, Math.round(input.tuitionFee ?? this.courseFee(input.courseId))),
+          input.academicYear?.trim() || null,
+          null,
           input.status,
           input.note?.trim() || null,
           now,
@@ -207,7 +248,8 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
         .prepare(
           `UPDATE classes SET
              code = ?, name = ?, course_id = ?, teacher_id = ?, room = ?,
-             start_date = ?, end_date = ?, max_students = ?, status = ?, note = ?, updated_at = ?
+             start_date = ?, end_date = ?, max_students = ?, tuition_fee = ?, academic_year = ?,
+             status = ?, note = ?, updated_at = ?
            WHERE id = ? AND deleted_at IS NULL`
         )
         .run(
@@ -219,6 +261,16 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
           input.startDate ?? null,
           input.endDate ?? null,
           Math.max(1, Math.round(input.maxStudents || 30)),
+          Math.max(
+            0,
+            Math.round(
+              input.tuitionFee ??
+                (input.courseId !== current.courseId
+                  ? this.courseFee(input.courseId)
+                  : (current.tuitionFee ?? this.courseFee(input.courseId)))
+            )
+          ),
+          input.academicYear?.trim() || null,
           input.status,
           input.note?.trim() || null,
           Date.now(),
@@ -227,6 +279,112 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
 
       this.replaceSchedules(id, input.schedules)
       return this.detail(id)
+    })
+  }
+
+  /**
+   * Mở lớp kế tiếp trong một transaction: tạo lớp, sao chép lịch tuần và ghi
+   * danh sách học viên chuyển tiếp thành các ghi danh mới với học phí hiện tại.
+   */
+  continueClass(sourceClassId: number, input: ContinueClassInput): ClassRoomDetail {
+    return this.transaction(() => {
+      const source = this.detail(sourceClassId)
+      const code = input.code?.trim() || generateCode(this.sqlite, 'classes', 'L', 3)
+      if (this.isDuplicate('code', code)) {
+        throw AppError.duplicate(`Mã lớp "${code}" đã tồn tại.`)
+      }
+
+      const studentIds = [...new Set(input.transferStudentIds ?? [])]
+      if (studentIds.length > input.maxStudents) {
+        throw AppError.validation(
+          `Có ${studentIds.length} học viên chuyển tiếp nhưng sĩ số tối đa chỉ là ${input.maxStudents}.`
+        )
+      }
+
+      const sourceDiscounts = new Map<number, number>()
+      if (studentIds.length > 0) {
+        const placeholders = studentIds.map(() => '?').join(',')
+        const validRows = this.sqlite
+          .prepare(
+            `SELECT student_id AS studentId, discount FROM enrollments
+             WHERE class_id = ? AND student_id IN (${placeholders})
+               AND deleted_at IS NULL AND status = 'studying'`
+          )
+          .all(sourceClassId, ...studentIds) as { studentId: number; discount: number }[]
+        if (validRows.length !== studentIds.length) {
+          throw AppError.validation(
+            'Danh sách chuyển tiếp có học viên không còn học trong lớp nguồn.'
+          )
+        }
+        for (const row of validRows) sourceDiscounts.set(row.studentId, row.discount)
+      }
+
+      const now = Date.now()
+      const result = this.sqlite
+        .prepare(
+          `INSERT INTO classes
+            (code, name, course_id, teacher_id, room, start_date, end_date,
+             max_students, tuition_fee, academic_year, previous_class_id, status, note,
+             created_at, updated_at, deleted_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,'planned',?,?,?,NULL)`
+        )
+        .run(
+          code,
+          input.name.trim(),
+          source.courseId,
+          input.teacherId ?? null,
+          input.room?.trim() || null,
+          input.startDate,
+          input.endDate,
+          Math.max(1, Math.round(input.maxStudents)),
+          Math.max(0, Math.round(input.tuitionFee)),
+          input.academicYear.trim(),
+          sourceClassId,
+          input.note?.trim() || `Lớp tiếp tục từ ${source.code} — ${source.name}`,
+          now,
+          now
+        )
+
+      const newClassId = Number(result.lastInsertRowid)
+      this.replaceSchedules(newClassId, input.schedules)
+
+      if (studentIds.length > 0) {
+        const insertEnrollment = this.sqlite.prepare(
+          `INSERT INTO enrollments
+            (student_id, class_id, enroll_date, status, agreed_fee, discount, note,
+             created_at, updated_at, deleted_at)
+           VALUES (?,?,?,'studying',?,?,?,?,?,NULL)`
+        )
+        for (const studentId of studentIds) {
+          insertEnrollment.run(
+            studentId,
+            newClassId,
+            input.startDate,
+            Math.max(0, Math.round(input.tuitionFee)),
+            input.carryDiscounts ? (sourceDiscounts.get(studentId) ?? 0) : 0,
+            `Chuyển tiếp từ lớp ${source.code}`,
+            now,
+            now
+          )
+        }
+      }
+
+      if (input.finishSourceClass) {
+        this.sqlite
+          .prepare(
+            `UPDATE classes SET status = 'finished', updated_at = ?
+             WHERE id = ? AND deleted_at IS NULL`
+          )
+          .run(now, sourceClassId)
+        this.sqlite
+          .prepare(
+            `UPDATE enrollments SET status = 'completed', updated_at = ?
+             WHERE class_id = ? AND status = 'studying' AND deleted_at IS NULL`
+          )
+          .run(now, sourceClassId)
+      }
+
+      return this.detail(newClassId)
     })
   }
 
@@ -265,15 +423,22 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
     }
   }
 
-  options(): SelectOption[] {
+  options(includeFinished = false): SelectOption[] {
     const rows = this.sqlite
       .prepare(
-        `SELECT cl.id, cl.code, cl.name FROM classes cl
-         WHERE cl.deleted_at IS NULL AND cl.status IN ('planned','ongoing')
+        `SELECT cl.id, cl.code, cl.name, cl.status FROM classes cl
+         WHERE cl.deleted_at IS NULL
+           AND (
+             cl.status IN ('planned','ongoing')
+             OR (? = 1 AND cl.status = 'finished')
+           )
          ORDER BY cl.name`
       )
-      .all() as { id: number; code: string; name: string }[]
-    return rows.map((r) => ({ label: `${r.code} — ${r.name}`, value: r.id }))
+      .all(includeFinished ? 1 : 0) as { id: number; code: string; name: string; status: string }[]
+    return rows.map((r) => ({
+      label: `${r.code} — ${r.name}${r.status === 'finished' ? ' (Đã kết thúc)' : ''}`,
+      value: r.id
+    }))
   }
 
   /* ----------------------- Ghi danh ----------------------- */
@@ -343,13 +508,14 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
 
   /**
    * Xếp nhiều học viên vào lớp trong một transaction.
-   * Học phí được chốt từ giá khoá học tại thời điểm ghi danh.
+   * Học phí được chốt từ giá của lớp tại thời điểm ghi danh.
    */
   enroll(input: EnrollInput): number {
     return this.transaction(() => {
       const cls = this.sqlite
         .prepare(
-          `SELECT cl.id, cl.max_students AS maxStudents, co.tuition_fee AS fee
+          `SELECT cl.id, cl.max_students AS maxStudents,
+                  COALESCE(cl.tuition_fee, co.tuition_fee) AS fee
            FROM classes cl JOIN courses co ON co.id = cl.course_id
            WHERE cl.id = ? AND cl.deleted_at IS NULL`
         )
@@ -418,7 +584,8 @@ export class ClassRepository extends BaseRepository<ClassRoom> {
     return this.transaction(() => {
       const cls = this.sqlite
         .prepare(
-          `SELECT cl.id, cl.max_students AS maxStudents, co.tuition_fee AS fee
+          `SELECT cl.id, cl.max_students AS maxStudents,
+                  COALESCE(cl.tuition_fee, co.tuition_fee) AS fee
            FROM classes cl JOIN courses co ON co.id = cl.course_id
            WHERE cl.id = ? AND cl.deleted_at IS NULL`
         )

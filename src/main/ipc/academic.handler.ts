@@ -14,6 +14,7 @@ import type {
   MarkMultiAttendanceInput,
   ClassInput,
   ClassQuery,
+  ContinueClassInput,
   CourseInput,
   CourseQuery,
   EnrollImportInput,
@@ -137,10 +138,17 @@ export function registerClassHandlers(): void {
   registerHandler(IPC.CLASS_UPDATE, { permission: P.CLASS_UPDATE }, (id: number, i: ClassInput) =>
     classService.update(id, i)
   )
+  registerHandler(
+    IPC.CLASS_CONTINUE,
+    { permission: P.CLASS_CREATE },
+    (id: number, input: ContinueClassInput) => classService.continueClass(id, input)
+  )
   registerHandler(IPC.CLASS_DELETE, { permission: P.CLASS_DELETE }, (id: number) =>
     classService.remove(id)
   )
-  registerHandler(IPC.CLASS_OPTIONS, { permission: P.CLASS_VIEW }, () => classService.options())
+  registerHandler(IPC.CLASS_OPTIONS, { permission: P.CLASS_VIEW }, (includeFinished?: boolean) =>
+    classService.options(includeFinished)
+  )
   registerHandler(IPC.CLASS_STUDENTS, { permission: P.CLASS_VIEW }, (id: number) =>
     classService.students(id)
   )

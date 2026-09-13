@@ -1,7 +1,20 @@
 import { MuiSelect as Select } from '@/components/common/MuiControls'
 import { useEffect } from 'react'
 import { MuiTimePicker as TimePicker } from '@/components/common/MuiControls'
-import { Alert, Button, Card, Col, Drawer, Flex, Form, Input, Row, Space, Spin, Typography } from 'antd'
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Drawer,
+  Flex,
+  Form,
+  Input,
+  Row,
+  Space,
+  Spin,
+  Typography
+} from 'antd'
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -35,6 +48,7 @@ const EMPTY: ClassForm = {
   startDate: null,
   endDate: null,
   maxStudents: 25,
+  academicYear: '',
   status: ClassStatus.PLANNED,
   note: '',
   schedules: [{ weekday: 2, startTime: '18:00', endTime: '20:00', room: '' }]
@@ -91,6 +105,7 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
         startDate: classroom.startDate,
         endDate: classroom.endDate,
         maxStudents: classroom.maxStudents,
+        academicYear: classroom.academicYear ?? '',
         status: classroom.status,
         note: classroom.note ?? '',
         schedules: classroom.schedules.map((s) => ({
@@ -139,7 +154,11 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
         <Flex justify="flex-end">
           <Space>
             <Button onClick={onClose}>Huỷ</Button>
-            <Button type="primary" loading={mutation.isPending} onClick={handleSubmit((v) => mutation.mutate(v))}>
+            <Button
+              type="primary"
+              loading={mutation.isPending}
+              onClick={handleSubmit((v) => mutation.mutate(v))}
+            >
               {isEdit ? 'Lưu thay đổi' : 'Tạo lớp'}
             </Button>
           </Space>
@@ -150,7 +169,12 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
         <Form layout="vertical">
           <Row gutter={16}>
             <Col span={12}>
-              <FormInput control={control} name="code" label="Mã lớp" placeholder="Tự sinh nếu bỏ trống" />
+              <FormInput
+                control={control}
+                name="code"
+                label="Mã lớp"
+                placeholder="Tự sinh nếu bỏ trống"
+              />
             </Col>
             <Col span={12}>
               <FormSelect
@@ -158,7 +182,10 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
                 name="status"
                 label="Trạng thái"
                 required
-                options={Object.entries(ClassStatusLabel).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(ClassStatusLabel).map(([value, label]) => ({
+                  value,
+                  label
+                }))}
               />
             </Col>
 
@@ -180,7 +207,7 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
                 placeholder="Chọn khoá học"
                 required
                 options={courseOptions}
-                extra="Học phí của lớp lấy theo khoá học đã chọn"
+                extra="Khi tạo lớp, học phí hiện tại của khóa học sẽ được chốt riêng cho lớp"
               />
             </Col>
             <Col span={12}>
@@ -204,7 +231,21 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
             </Col>
 
             <Col span={12}>
-              <FormNumber control={control} name="maxStudents" label="Sĩ số tối đa" min={1} addonAfter="học viên" />
+              <FormNumber
+                control={control}
+                name="maxStudents"
+                label="Sĩ số tối đa"
+                min={1}
+                addonAfter="học viên"
+              />
+            </Col>
+            <Col span={12}>
+              <FormInput
+                control={control}
+                name="academicYear"
+                label="Năm học"
+                placeholder="2026–2027"
+              />
             </Col>
           </Row>
 
@@ -218,7 +259,9 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
                 type="dashed"
                 size="small"
                 icon={<PlusOutlined />}
-                onClick={() => append({ weekday: 2, startTime: '18:00', endTime: '20:00', room: '' })}
+                onClick={() =>
+                  append({ weekday: 2, startTime: '18:00', endTime: '20:00', room: '' })
+                }
               >
                 Thêm buổi
               </Button>
@@ -232,7 +275,12 @@ export function ClassFormDrawer({ open, classId, onClose }: Props) {
             />
 
             {scheduleError && (
-              <Alert type="error" showIcon message={String(scheduleError)} style={{ marginBottom: 12 }} />
+              <Alert
+                type="error"
+                showIcon
+                message={String(scheduleError)}
+                style={{ marginBottom: 12 }}
+              />
             )}
 
             <Space direction="vertical" size={10} style={{ width: '100%' }}>

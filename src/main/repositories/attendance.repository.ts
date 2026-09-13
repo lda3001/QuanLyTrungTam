@@ -31,8 +31,13 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
    */
   bySession(sessionId: number): AttendanceDetail[] {
     const session = this.sqlite
-      .prepare(`SELECT class_id AS classId FROM class_sessions WHERE id = ? AND deleted_at IS NULL`)
-      .get(sessionId) as { classId: number } | undefined
+      .prepare(
+        `SELECT cs.class_id AS classId, cl.status AS classStatus
+         FROM class_sessions cs
+         JOIN classes cl ON cl.id = cs.class_id
+         WHERE cs.id = ? AND cs.deleted_at IS NULL AND cl.deleted_at IS NULL`
+      )
+      .get(sessionId) as { classId: number; classStatus: string } | undefined
     if (!session) throw AppError.notFound('Buổi học')
 
     return this.sqlite
@@ -53,10 +58,14 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
          FROM enrollments e
          JOIN students s ON s.id = e.student_id
          LEFT JOIN attendance a ON a.student_id = s.id AND a.session_id = ? AND a.deleted_at IS NULL
-         WHERE e.class_id = ? AND e.deleted_at IS NULL AND e.status = 'studying'
+         WHERE e.class_id = ? AND e.deleted_at IS NULL
+           AND (
+             e.status = 'studying'
+             OR (? = 'finished' AND (e.status = 'completed' OR a.id IS NOT NULL))
+           )
          ORDER BY s.full_name`
       )
-      .all(sessionId, sessionId, session.classId) as AttendanceDetail[]
+      .all(sessionId, sessionId, session.classId, session.classStatus) as AttendanceDetail[]
   }
 
   /**
@@ -66,11 +75,27 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
   mark(input: MarkAttendanceInput, markedBy: number | null): number {
     return this.transaction(() => {
       const session = this.sqlite
-        .prepare(`SELECT id, status FROM class_sessions WHERE id = ? AND deleted_at IS NULL`)
-        .get(input.sessionId) as { id: number; status: string } | undefined
+        .prepare(
+          `SELECT cs.id, cs.status, cs.session_date AS sessionDate, cl.status AS classStatus
+           FROM class_sessions cs
+           JOIN classes cl ON cl.id = cs.class_id
+           WHERE cs.id = ? AND cs.deleted_at IS NULL AND cl.deleted_at IS NULL`
+        )
+        .get(input.sessionId) as
+        { id: number; status: string; sessionDate: string; classStatus: string } | undefined
       if (!session) throw AppError.notFound('Buổi học')
+      if (session.classStatus === 'finished') {
+        throw AppError.conflict(
+          'Lớp học đã kết thúc. Điểm danh cũ chỉ được phép xem và xuất dữ liệu.'
+        )
+      }
       if (session.status === 'cancelled') {
         throw AppError.conflict('Buổi học đã bị huỷ, không thể điểm danh.')
+      }
+      if (session.sessionDate > localDateYmd()) {
+        throw AppError.conflict(
+          'Chưa đến ngày học. Chỉ có thể điểm danh từ đúng ngày diễn ra buổi học.'
+        )
       }
 
       const now = Date.now()
@@ -102,7 +127,9 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
 
       // Điểm danh xong nghĩa là buổi học đã diễn ra
       this.sqlite
-        .prepare(`UPDATE class_sessions SET status = 'done', updated_at = ? WHERE id = ? AND status = 'scheduled'`)
+        .prepare(
+          `UPDATE class_sessions SET status = 'done', updated_at = ? WHERE id = ? AND status = 'scheduled'`
+        )
         .run(now, input.sessionId)
 
       return input.items.length
@@ -120,12 +147,13 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
   grid(query: AttendanceGridQuery): AttendanceGridResult {
     const cls = this.sqlite
       .prepare(
-        `SELECT cl.name AS className, co.name AS courseName
+        `SELECT cl.name AS className, cl.status AS classStatus, co.name AS courseName
          FROM classes cl
          JOIN courses co ON co.id = cl.course_id
          WHERE cl.id = ? AND cl.deleted_at IS NULL`
       )
-      .get(query.classId) as { className: string; courseName: string } | undefined
+      .get(query.classId) as
+      { className: string; classStatus: string; courseName: string } | undefined
     if (!cls) throw AppError.notFound('Lớp học')
 
     const sessWhere: string[] = ['class_id = ?', 'deleted_at IS NULL', "status != 'cancelled'"]
@@ -154,10 +182,27 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
                 s.school_class AS schoolClass, s.guardian_phone AS guardianPhone
          FROM enrollments e
          JOIN students s ON s.id = e.student_id
-         WHERE e.class_id = ? AND e.deleted_at IS NULL AND e.status = 'studying'
+         WHERE e.class_id = ? AND e.deleted_at IS NULL
+           AND (
+             e.status = 'studying'
+             OR (
+               ? = 'finished'
+               AND (
+                 e.status = 'completed'
+                 OR EXISTS (
+                   SELECT 1
+                   FROM attendance old_a
+                   JOIN class_sessions old_cs ON old_cs.id = old_a.session_id
+                   WHERE old_a.student_id = e.student_id
+                     AND old_a.deleted_at IS NULL
+                     AND old_cs.class_id = e.class_id
+                 )
+               )
+             )
+           )
          ORDER BY s.full_name`
       )
-      .all(query.classId) as AttendanceGridStudent[]
+      .all(query.classId, cls.classStatus) as AttendanceGridStudent[]
 
     const marks: Record<number, Record<number, AttendanceStatus>> = {}
     if (sessions.length > 0) {
@@ -190,6 +235,7 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
   markMulti(input: MarkMultiAttendanceInput, markedBy: number | null): number {
     return this.transaction(() => {
       const now = Date.now()
+      const today = localDateYmd()
       const upsert = this.sqlite.prepare(
         `INSERT INTO attendance
           (session_id, student_id, status, note, marked_by, marked_at, created_at, updated_at, deleted_at)
@@ -209,12 +255,37 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
       let total = 0
       for (const sess of input.sessions) {
         const session = this.sqlite
-          .prepare(`SELECT id, status FROM class_sessions WHERE id = ? AND deleted_at IS NULL`)
-          .get(sess.sessionId) as { id: number; status: string } | undefined
+          .prepare(
+            `SELECT cs.id, cs.status, cs.session_date AS sessionDate, cl.status AS classStatus
+             FROM class_sessions cs
+             JOIN classes cl ON cl.id = cs.class_id
+             WHERE cs.id = ? AND cs.deleted_at IS NULL AND cl.deleted_at IS NULL`
+          )
+          .get(sess.sessionId) as
+          { id: number; status: string; sessionDate: string; classStatus: string } | undefined
         if (!session || session.status === 'cancelled') continue
+        if (session.classStatus === 'finished') {
+          throw AppError.conflict(
+            'Lớp học đã kết thúc. Không thể nhập hoặc chỉnh sửa điểm danh cũ.'
+          )
+        }
+        if (session.sessionDate > today) {
+          throw AppError.conflict(
+            'File có buổi học chưa đến ngày. Chỉ có thể nhập điểm danh cho các buổi đã diễn ra.'
+          )
+        }
 
         for (const item of sess.items) {
-          upsert.run(sess.sessionId, item.studentId, item.status, item.note?.trim() || null, markedBy, now, now, now)
+          upsert.run(
+            sess.sessionId,
+            item.studentId,
+            item.status,
+            item.note?.trim() || null,
+            markedBy,
+            now,
+            now,
+            now
+          )
           total++
         }
         doneSession.run(now, sess.sessionId)
@@ -230,7 +301,9 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
 
     const kw = likeParam(query.keyword)
     if (kw) {
-      where.push(`(s.code LIKE ? ESCAPE '\\' OR search_text(s.full_name) LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\')`)
+      where.push(
+        `(s.code LIKE ? ESCAPE '\\' OR search_text(s.full_name) LIKE ? ESCAPE '\\' OR cl.name LIKE ? ESCAPE '\\')`
+      )
       params.push(kw, kw, kw)
     }
     if (query.studentId) {
@@ -265,7 +338,9 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
       WHERE ${whereSql}`
 
     const total = (
-      this.sqlite.prepare(`SELECT COUNT(*) AS c ${fromSql}`).get(...(params as never[])) as { c: number }
+      this.sqlite.prepare(`SELECT COUNT(*) AS c ${fromSql}`).get(...(params as never[])) as {
+        c: number
+      }
     ).c
 
     const items = this.sqlite
@@ -321,3 +396,9 @@ export class AttendanceRepository extends BaseRepository<Attendance> {
 }
 
 export const attendanceRepository = new AttendanceRepository()
+
+function localDateYmd(date = new Date()): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}

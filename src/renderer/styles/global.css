@@ -406,6 +406,23 @@ body {
   background: var(--ant-color-primary, #1677ff);
 }
 
+.class-continuation-students {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  max-height: 210px;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--ant-color-fill-quaternary, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--ant-color-border-secondary, #f0f0f0);
+  border-radius: 10px;
+}
+
+.class-continuation-students .ant-checkbox-wrapper {
+  min-width: 0;
+  margin-inline-start: 0;
+}
+
 body.app-column-resizing,
 body.app-column-resizing * {
   cursor: col-resize !important;

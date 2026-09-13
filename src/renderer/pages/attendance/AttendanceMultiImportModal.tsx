@@ -6,7 +6,11 @@ import { fileService } from '@/services/admin.service'
 import { attendanceService } from '@/services/academic.service'
 import { useNotify } from '@/hooks/useNotify'
 import { dayjs, ISO_DATE } from '@/utils/format'
-import { AttendanceStatus, AttendanceStatusLabel, AttendanceStatusColor } from '@shared/constants/enums'
+import {
+  AttendanceStatus,
+  AttendanceStatusLabel,
+  AttendanceStatusColor
+} from '@shared/constants/enums'
 import type { AttendanceGridSession, AttendanceGridStudent } from '@shared/types/dto'
 
 interface Props {
@@ -49,7 +53,9 @@ const SYMBOL_MAP: Record<string, AttendanceStatus> = {
 }
 
 function parseSymbol(raw: unknown): AttendanceStatus | null {
-  const key = String(raw ?? '').trim().toLowerCase()
+  const key = String(raw ?? '')
+    .trim()
+    .toLowerCase()
   if (!key) return null
   return SYMBOL_MAP[key] ?? null
 }
@@ -84,7 +90,10 @@ function parseSessionHeader(value: unknown): SessionHeaderDate | null {
   return shortDate.isValid() ? { day: shortDate.date(), month: shortDate.month() + 1 } : null
 }
 
-function matchSession(header: unknown, sessions: AttendanceGridSession[]): AttendanceGridSession | null {
+function matchSession(
+  header: unknown,
+  sessions: AttendanceGridSession[]
+): AttendanceGridSession | null {
   const parsed = parseSessionHeader(header)
   if (!parsed) return null
   const candidates = sessions.filter((s) => {
@@ -124,7 +133,10 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
     staleTime: 2 * 60_000
   })
 
-  const sessions: AttendanceGridSession[] = grid?.sessions ?? []
+  const today = dayjs().format(ISO_DATE)
+  const allSessions: AttendanceGridSession[] = grid?.sessions ?? []
+  const sessions = allSessions.filter((session) => session.sessionDate <= today)
+  const futureSessionCount = allSessions.length - sessions.length
   const students: AttendanceGridStudent[] = grid?.students ?? []
 
   const pickMutation = useMutation({
@@ -219,13 +231,19 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
 
   const saveMutation = useMutation({
     mutationFn: () => {
-      const bySession = new Map<number, { studentId: number; status: AttendanceStatus; note: null }[]>()
+      const bySession = new Map<
+        number,
+        { studentId: number; status: AttendanceStatus; note: null }[]
+      >()
       for (const c of parsed) {
         if (!bySession.has(c.sessionId)) bySession.set(c.sessionId, [])
         bySession.get(c.sessionId)!.push({ studentId: c.studentId, status: c.status, note: null })
       }
       return attendanceService.markMulti({
-        sessions: Array.from(bySession.entries()).map(([sessionId, items]) => ({ sessionId, items }))
+        sessions: Array.from(bySession.entries()).map(([sessionId, items]) => ({
+          sessionId,
+          items
+        }))
       })
     },
     onSuccess: (count) => {
@@ -262,7 +280,11 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
         step === 1 ? (
           <Space>
             <Button onClick={() => setStep(0)}>Chọn tệp khác</Button>
-            <Button type="primary" loading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+            <Button
+              type="primary"
+              loading={saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
               Lưu {parsed.length} bản ghi
             </Button>
           </Space>
@@ -287,8 +309,8 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
             description={
               <div>
                 <p style={{ margin: '6px 0 4px' }}>
-                  Chọn file Excel xuất từ chức năng <b>Xuất nhiều buổi</b>. Hệ thống tự khớp cột ngày
-                  (DD/MM) với buổi học của lớp và cập nhật trạng thái điểm danh.
+                  Chọn file Excel xuất từ chức năng <b>Xuất nhiều buổi</b>. Hệ thống tự khớp cột
+                  ngày (DD/MM) với các buổi đã đến ngày học và cập nhật trạng thái điểm danh.
                 </p>
                 <p style={{ margin: 0 }}>
                   Ký hiệu: <b>x</b> = Có mặt · <b>M</b> = Đi muộn · <b>P</b> = Nghỉ có phép ·{' '}
@@ -297,6 +319,13 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
               </div>
             }
           />
+          {futureSessionCount > 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              message={`${futureSessionCount} buổi chưa đến ngày sẽ không được nhập điểm danh.`}
+            />
+          )}
           {loadingGrid ? (
             <Spin />
           ) : (
@@ -311,7 +340,15 @@ export function AttendanceMultiImportModal({ open, classId, className, onClose }
             </Button>
           )}
           {!loadingGrid && sessions.length === 0 && (
-            <Alert type="warning" showIcon message="Lớp chưa có buổi học nào." />
+            <Alert
+              type="warning"
+              showIcon
+              message={
+                futureSessionCount > 0
+                  ? 'Chưa có buổi học nào đến ngày điểm danh.'
+                  : 'Lớp chưa có buổi học nào.'
+              }
+            />
           )}
         </Space>
       )}

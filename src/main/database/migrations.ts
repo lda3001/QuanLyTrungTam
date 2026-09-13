@@ -369,12 +369,42 @@ const MIGRATIONS: Migration[] = [
          FROM enrollments e
        ) x`
     ]
+  },
+  {
+    version: 4,
+    name: 'class-continuation-academic-year',
+    statements: [
+      `ALTER TABLE classes ADD COLUMN academic_year TEXT`,
+      `ALTER TABLE classes ADD COLUMN previous_class_id INTEGER REFERENCES classes(id)`,
+      `CREATE INDEX IF NOT EXISTS classes_academic_year_idx ON classes (academic_year)`,
+      `CREATE INDEX IF NOT EXISTS classes_previous_class_idx ON classes (previous_class_id)`
+    ]
+  },
+  {
+    version: 5,
+    name: 'class-tuition-snapshot',
+    statements: [
+      `ALTER TABLE classes ADD COLUMN tuition_fee INTEGER`,
+      `UPDATE classes
+       SET tuition_fee = COALESCE(
+         (SELECT e.agreed_fee
+          FROM enrollments e
+          WHERE e.class_id = classes.id AND e.deleted_at IS NULL
+          ORDER BY e.created_at, e.id
+          LIMIT 1),
+         (SELECT courses.tuition_fee FROM courses WHERE courses.id = classes.course_id),
+         0
+       )
+       WHERE tuition_fee IS NULL`
+    ]
   }
 ]
 
 export function runMigrations(sqlite: Database.Database): void {
   const current = sqlite.pragma('user_version', { simple: true }) as number
-  const pending = MIGRATIONS.filter((m) => m.version > current).sort((a, b) => a.version - b.version)
+  const pending = MIGRATIONS.filter((m) => m.version > current).sort(
+    (a, b) => a.version - b.version
+  )
 
   if (pending.length === 0) return
 

@@ -67,7 +67,11 @@ function endpoint(group: string, action: string, args: unknown[]): Config {
     'students.payments': { method: 'get', url: `/students/${id}/payments` },
     'teachers.options': { method: 'get', url: '/teachers/options' },
     'courses.options': { method: 'get', url: '/courses/options' },
-    'classes.options': { method: 'get', url: '/classes/options' },
+    'classes.options': {
+      method: 'get',
+      url: '/classes/options',
+      params: { includeFinished: a }
+    },
     'classes.students': { method: 'get', url: `/classes/${id}/students` },
     'classes.availableStudents': {
       method: 'get',
@@ -83,6 +87,11 @@ function endpoint(group: string, action: string, args: unknown[]): Config {
       method: 'put',
       url: `/classes/enrollments/${(a as { id?: number } | undefined)?.id ?? 0}`,
       data: a
+    },
+    'classes.continueClass': {
+      method: 'post',
+      url: `/classes/${id}/continue`,
+      data: b
     },
     'classes.unenroll': { method: 'post', url: '/classes/0/unenroll', data: { enrollmentId: a } },
     'sessions.move': {
